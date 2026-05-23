@@ -2,15 +2,15 @@
 
 This repo is being set up for a local FastAPI backend plus Vite React frontend.
 
-## Intended Commands
+## Commands
 
-These commands should be finalized once package files exist:
-
-- Backend tests: `pytest`
-- Frontend dev server: `npm run dev --workspace frontend` or the project-specific equivalent.
-- Frontend unit tests: `npm test --workspace frontend` or the project-specific equivalent.
-- Frontend typecheck: `npm run typecheck --workspace frontend`.
-- Browser smoke tests: Playwright command defined by the frontend package.
+- Frontend dev server: `npm run dev`
+- Frontend unit tests: `npm test`
+- Frontend typecheck: `npm run typecheck`
+- Frontend production build: `npm run build`
+- Frontend dependency audit: `npm audit`
+- Backend tests: `pytest` once backend package files exist.
+- Browser smoke screenshot: `npm exec -- playwright screenshot --viewport-size=1440,1000 http://127.0.0.1:5173 /tmp/qbrq-review-ui.png`
 
 Normal local production run should use one FastAPI server that serves the built Vite React assets. Two-server mode is for development only, with Vite proxying API and media requests to FastAPI.
 

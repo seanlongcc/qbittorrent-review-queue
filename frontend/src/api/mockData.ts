@@ -1,0 +1,113 @@
+import type { LocalSettings, ReviewTorrent } from "../domain/types";
+
+export const mockSettings: LocalSettings = {
+  qbtBaseUrl: "http://localhost:8080",
+  qbtUsername: "admin",
+  passwordConfigured: true,
+  sessionFolder: "/mnt/c/Users/seanl/Videos/Review/Session-12",
+  sessionFolderLimit: 40,
+  folderCount: 34,
+  connected: false,
+};
+
+export const mockTorrents: ReviewTorrent[] = [
+  {
+    hash: "a41f7e9b0d8c2a7a5190cc3d72af0115e4c92a31",
+    name: "Workshop footage - camera A",
+    status: "completed",
+    progress: 1,
+    totalSizeBytes: 18_934_771_712,
+    savePath: "C:\\Downloads\\Workshop footage - camera A",
+    candidates: [
+      {
+        fileIndex: 0,
+        name: "camera-a-main-2160p.mkv",
+        extension: "mkv",
+        sizeBytes: 15_694_118_400,
+        path: "/mnt/c/Downloads/Workshop footage - camera A/camera-a-main-2160p.mkv",
+        playable: false,
+      },
+      {
+        fileIndex: 1,
+        name: "camera-a-proxy.mp4",
+        extension: "mp4",
+        sizeBytes: 2_871_934_976,
+        path: "/mnt/c/Downloads/Workshop footage - camera A/camera-a-proxy.mp4",
+        playable: true,
+      },
+    ],
+    junkFiles: [
+      { fileIndex: 2, name: "nfo.txt", sizeBytes: 18_432 },
+      { fileIndex: 3, name: "sample.jpg", sizeBytes: 884_120 },
+    ],
+  },
+  {
+    hash: "b20d3f81f5fb4e3e93f8cfbb8a9a0ea5d30e7f6c",
+    name: "Conference recordings pack",
+    status: "completed",
+    progress: 1,
+    totalSizeBytes: 9_488_204_800,
+    savePath: "C:\\Downloads\\Conference recordings pack",
+    candidates: [
+      {
+        fileIndex: 4,
+        name: "day-02-keynote.mp4",
+        extension: "mp4",
+        sizeBytes: 4_284_661_760,
+        path: "/mnt/c/Downloads/Conference recordings pack/day-02-keynote.mp4",
+        playable: true,
+      },
+      {
+        fileIndex: 0,
+        name: "day-01-main.mp4",
+        extension: "mp4",
+        sizeBytes: 3_982_721_024,
+        path: "/mnt/c/Downloads/Conference recordings pack/day-01-main.mp4",
+        playable: true,
+      },
+      {
+        fileIndex: 7,
+        name: "speaker-room-b.webm",
+        extension: "webm",
+        sizeBytes: 781_189_120,
+        path: "/mnt/c/Downloads/Conference recordings pack/speaker-room-b.webm",
+        playable: true,
+      },
+    ],
+    junkFiles: [
+      { fileIndex: 2, name: "slides.zip", sizeBytes: 310_378_496 },
+      { fileIndex: 3, name: "readme.md", sizeBytes: 7_220 },
+    ],
+  },
+  {
+    hash: "d99fef19a3dc31c7db8c10d422c832f7ddbc79f0",
+    name: "Training session exports",
+    status: "completed",
+    progress: 1,
+    totalSizeBytes: 5_834_973_184,
+    savePath: "C:\\Downloads\\Training session exports",
+    candidates: [
+      {
+        fileIndex: 3,
+        name: "training-final.mov",
+        extension: "mov",
+        sizeBytes: 5_603_016_704,
+        path: "/mnt/c/Downloads/Training session exports/training-final.mov",
+        playable: true,
+      },
+    ],
+    junkFiles: [{ fileIndex: 1, name: "export-log.json", sizeBytes: 42_008 }],
+  },
+  {
+    hash: "e076e241670902edda4fe1d6e142c6f35284113e",
+    name: "Archive drive import",
+    status: "attention",
+    progress: 1,
+    totalSizeBytes: 22_412_509_184,
+    savePath: "D:\\Archive\\Drive import",
+    candidates: [],
+    junkFiles: [],
+    attentionReason: "path_missing",
+    attentionDetail: "Windows path is not mapped into WSL.",
+  },
+];
