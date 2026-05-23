@@ -1,0 +1,29 @@
+{
+  "name": "Local qBittorrent Review Queue",
+  "description": "Local keyboard-first review workbench for completed torrent videos.",
+  "register": "product",
+  "colorStrategy": "restrained",
+  "scene": "One person sits at a desktop in a dim room, one hand on the keyboard, clearing completed downloads while avoiding accidental file loss.",
+  "colors": {
+    "background": "oklch(15.5% 0.008 165)",
+    "foreground": "oklch(93% 0.012 78)",
+    "surface": "oklch(20% 0.011 165)",
+    "surfaceElevated": "oklch(25% 0.014 165)",
+    "primary": "oklch(67% 0.14 150)",
+    "secondary": "oklch(78% 0.115 82)",
+    "info": "oklch(70% 0.095 225)",
+    "destructive": "oklch(62% 0.17 28)",
+    "border": "oklch(34% 0.018 165)"
+  },
+  "typography": {
+    "ui": "Inter, ui-sans-serif, system-ui, sans-serif",
+    "mono": "IBM Plex Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+  },
+  "rules": [
+    "Green means Keep or success.",
+    "Red means Reject, delete, or failed destructive operation.",
+    "Amber means focus, capacity, or attention before action.",
+    "Preview and candidate files dominate. Decorative color does not."
+  ]
+}
+

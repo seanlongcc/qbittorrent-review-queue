@@ -1,0 +1,4 @@
+interface:
+  display_name: "Browser Use"
+  short_description: "Use Browser for Codex in-app browser (IAB) local targets such as localhost, 127.0.0.1, ::1, and file://."
+  default_prompt: "Inspect the current in-app browser tab or open a local app in the in-app browser and verify it."
