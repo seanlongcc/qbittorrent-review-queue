@@ -1,34 +1,106 @@
 # Development Notes
 
-This repo is being set up for a local FastAPI backend plus Vite React frontend.
+This repo runs a local FastAPI backend with a Vite React frontend for the qBittorrent review queue.
 
-## Commands
+## Local Setup
 
-- Frontend dev server: `npm run dev`
-- Frontend unit tests: `npm test`
-- Frontend typecheck: `npm run typecheck`
-- Frontend production build: `npm run build`
-- Frontend dependency audit: `npm audit`
-- Backend tests: `pytest` once backend package files exist.
-- Browser smoke screenshot: `npm exec -- playwright screenshot --viewport-size=1440,1000 http://127.0.0.1:5173 /tmp/qbrq-review-ui.png`
+1. Install Node dependencies:
 
-Normal local production run should use one FastAPI server that serves the built Vite React assets. Two-server mode is for development only, with Vite proxying API and media requests to FastAPI.
+```bash
+npm install
+```
 
-Do not add `.exe` or installer packaging in v1. Run from repo scripts until the review workflow stabilizes.
+2. Install Python dependencies:
 
-## Local Environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -e '.[dev]'
+```
 
-Use `.env` for bootstrap defaults:
+If venv creation fails on Debian/Ubuntu, install the matching `python3-venv` package first.
 
-- `QBT_BASE_URL`
+3. Create local settings:
+
+```bash
+cp .env.example .env
+```
+
+Set these values in `.env` or through the app settings panel:
+
+- `QBT_BASE_URL`, normally `http://localhost:8080`
 - `QBT_USERNAME`
 - `QBT_PASSWORD`
-- `QBT_COMPLETED_FILTER`
 - `WINDOWS_DOWNLOAD_ROOT`
 - `WSL_DOWNLOAD_ROOT`
 - `SESSION_FOLDER`
 - `SESSION_FOLDER_LIMIT`
 
-Do not commit real `.env` values.
+Do not commit real `.env` or `config.local.json` values. API responses return `passwordConfigured`, never the password.
 
-Settings and credentials changed through the app should be written to `config.local.json`, not back into `.env`. Do not commit real `config.local.json` values. API responses must not return password values; return password presence only.
+## Development Run
+
+Run the backend:
+
+```bash
+python3 -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+Run the frontend:
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:5500/`. Vite proxies `/api` and `/media` to FastAPI on port `8000`.
+
+## Local Production Run
+
+Build the frontend:
+
+```bash
+npm run build
+```
+
+Serve the built UI through FastAPI:
+
+```bash
+python3 -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+Open `http://localhost:8000/`.
+
+## Verification
+
+Run frontend checks:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+Run backend checks:
+
+```bash
+python3 -m pytest backend/tests -q -s
+```
+
+Browser smoke verification should cover desktop and narrow viewports at `http://localhost:5500/` during development or `http://localhost:8000/` after a production build. Check console errors and confirm the review shell, queue rail, media stage, candidate table, Keep/Reject controls, settings panel, and disconnected attention state render without mock regions.
+
+## qBittorrent Notes
+
+qBittorrent WebUI must be enabled. The app talks to WebUI API endpoints under `/api/v2`.
+
+When running from WSL, `http://localhost:8080` can fail if qBittorrent listens on Windows only. The backend attempts a `host.docker.internal` fallback for localhost connection-refused cases while preserving qBittorrent host checks. qBittorrent sees that fallback as a remote WSL client, so `Bypass authentication for clients on localhost` does not apply. Use valid qBittorrent credentials, or deliberately enable qBittorrent's subnet whitelist for the active WSL subnet.
+
+If `/api/queue` returns an `auth_failed` attention item, set a valid qBittorrent password in the settings panel or in `.env` / `config.local.json`.
+
+qBittorrent bans remote clients after repeated failed WebUI logins. If the backend reports `IP banned or credentials invalid`, verify from a Windows-side local client first, then clear the ban by waiting for qBittorrent's configured ban duration, restarting qBittorrent, or whitelisting the WSL subnet in qBittorrent WebUI settings.
+
+## Safety Rules
+
+- Reject requires explicit confirmation before qBittorrent delete with `deleteFiles=true`.
+- Keep moves marked candidate files first, verifies destinations, then removes torrent leftovers with `deleteFiles=true`.
+- Keep is blocked when the session folder would exceed capacity.
+- Media/open routes accept torrent hash plus qBittorrent file index only. Browser requests never provide raw local paths.

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { mockSettings, mockTorrents } from "../api/mockData";
+import { sampleSettings, sampleTorrents } from "../test/fixtures";
 import {
   createInitialState,
   getActiveCandidate,
   getActiveTorrent,
   getMarkedCandidateIndexes,
+  getReviewableTorrents,
+  isActiveTorrentMissing,
   needsKeepConfirmation,
   reviewReducer,
   wouldExceedFolderLimit,
@@ -12,7 +14,7 @@ import {
 
 describe("review state", () => {
   it("defaults to the first completed torrent and marks its largest candidate", () => {
-    const state = createInitialState(mockTorrents, mockSettings);
+    const state = createInitialState(sampleTorrents, sampleSettings);
 
     expect(getActiveTorrent(state)?.name).toBe("Workshop footage - camera A");
     expect(getActiveCandidate(state)?.name).toBe("camera-a-main-2160p.mkv");
@@ -20,7 +22,7 @@ describe("review state", () => {
   });
 
   it("moves between torrents with wraparound", () => {
-    const state = createInitialState(mockTorrents, mockSettings);
+    const state = createInitialState(sampleTorrents, sampleSettings);
 
     const previous = reviewReducer(state, { type: "previousTorrent" });
     expect(getActiveTorrent(previous)?.name).toBe("Training session exports");
@@ -30,7 +32,7 @@ describe("review state", () => {
   });
 
   it("requires Keep confirmation when unmarked videos would be deleted", () => {
-    const state = createInitialState(mockTorrents, mockSettings);
+    const state = createInitialState(sampleTorrents, sampleSettings);
 
     expect(needsKeepConfirmation(state)).toBe(true);
 
@@ -39,27 +41,52 @@ describe("review state", () => {
   });
 
   it("blocks Keep when the session folder would exceed capacity", () => {
-    const state = createInitialState(mockTorrents, {
-      ...mockSettings,
+    const state = createInitialState(sampleTorrents, {
+      ...sampleSettings,
       folderCount: 40,
     });
 
     expect(wouldExceedFolderLimit(state)).toBe(true);
 
     const afterKeep = reviewReducer(state, { type: "keep" });
-    expect(afterKeep.torrents).toHaveLength(mockTorrents.length);
+    expect(afterKeep.torrents).toHaveLength(getReviewableTorrents(state).length);
     expect(afterKeep.notice).toMatch(/folder is full/i);
   });
 
   it("rejects only after arming confirmation", () => {
-    const state = createInitialState(mockTorrents, mockSettings);
+    const state = createInitialState(sampleTorrents, sampleSettings);
 
     const armed = reviewReducer(state, { type: "reject" });
     expect(armed.armedAction).toBe("reject");
-    expect(armed.torrents).toHaveLength(mockTorrents.length);
+    expect(armed.torrents).toHaveLength(getReviewableTorrents(state).length);
 
-    const rejected = reviewReducer(armed, { type: "reject" });
-    expect(rejected.torrents).toHaveLength(mockTorrents.length - 1);
-    expect(rejected.armedAction).toBeNull();
+    const confirmed = reviewReducer(armed, { type: "reject" });
+    expect(confirmed.torrents).toHaveLength(getReviewableTorrents(state).length);
+    expect(confirmed.armedAction).toBe("reject");
+  });
+
+  it("keeps a vanished active torrent selected and blocks destructive actions until user moves on", () => {
+    const state = createInitialState(sampleTorrents, sampleSettings);
+    const queueAfterPoll = reviewReducer(state, {
+      type: "queueLoaded",
+      torrents: [sampleTorrents[1]],
+      attentionTorrents: [],
+      settings: sampleSettings,
+    });
+
+    expect(getActiveTorrent(queueAfterPoll)?.name).toBe("Workshop footage - camera A");
+    expect(isActiveTorrentMissing(queueAfterPoll)).toBe(true);
+
+    const afterKeep = reviewReducer(queueAfterPoll, { type: "keep" });
+    expect(afterKeep.armedAction).toBeNull();
+    expect(afterKeep.notice).toMatch(/no longer in qBittorrent/i);
+
+    const afterReject = reviewReducer(queueAfterPoll, { type: "reject" });
+    expect(afterReject.armedAction).toBeNull();
+    expect(afterReject.notice).toMatch(/no longer in qBittorrent/i);
+
+    const next = reviewReducer(queueAfterPoll, { type: "nextTorrent" });
+    expect(getActiveTorrent(next)?.name).toBe("Conference recordings pack");
+    expect(isActiveTorrentMissing(next)).toBe(false);
   });
 });

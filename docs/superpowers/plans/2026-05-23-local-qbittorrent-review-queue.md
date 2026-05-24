@@ -47,7 +47,7 @@
 - Current selected torrent is preserved during auto-poll. If it disappears, show Vanished Torrent state with Refresh/Next.
 - Video candidates use extension allowlist only, no minimum size cutoff, sorted largest first.
 - Default mark is only the largest candidate.
-- Left-hand keyboard model is primary: `W/S`, `A/D`, `Space`, `Q`, `E`, `Enter`, `Esc`.
+- Left-hand keyboard model is primary: visible keys `Q/E/R/T`, `A/S/D/F`, `Z/X`, plus `Esc`; `Space` may mirror marking as a secondary shortcut.
 - Keep moves marked candidates, verifies destination files, then deletes qBittorrent leftovers with `deleteFiles=true`.
 - Reject requires armed confirmation and deletes qBittorrent torrent/files.
 - Keep needs armed confirmation only when multiple candidates exist and some are unmarked.
@@ -2167,4 +2167,4 @@ git commit -m "test: add browser smoke coverage"
 
 **Placeholder scan:** No `TBD`, `TODO`, or "fill in later" markers are used. Steps include exact file paths, concrete code, commands, and expected results.
 
-**Type consistency:** Backend model names are `TorrentFile`, `ResolvedMedia`, `KeepRequest`, and `KeepResult`. Frontend DTO names are `VideoCandidate` and `ReviewState`. Keyboard commands match `W/S/A/D/Space/Q/E/Enter/Esc` decisions.
+**Type consistency:** Backend model names are `TorrentFile`, `ResolvedMedia`, `KeepRequest`, and `KeepResult`. Frontend DTO names are `VideoCandidate` and `ReviewState`. Keyboard commands match the visible `Q/E/R/T`, `A/S/D/F`, `Z/X`, and `Esc` decisions, with `Space` as secondary marking.

@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Iron Ledger Review Queue Mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(15.8% 0.01 248);
+        --ink: oklch(94% 0.011 86);
+        --muted-ink: oklch(72% 0.026 82);
+        --panel: oklch(21.2% 0.013 246);
+        --lift: oklch(26.5% 0.016 246);
+        --line: oklch(35% 0.019 246);
+        --soft: oklch(24% 0.014 246);
+        --keep: oklch(69% 0.13 154);
+        --keep-ink: oklch(14% 0.011 154);
+        --warn: oklch(75% 0.12 68);
+        --warn-soft: oklch(25% 0.035 68);
+        --info: oklch(72% 0.09 218);
+        --reject: oklch(62% 0.18 31);
+        --reject-soft: oklch(27% 0.05 31);
+        --shadow: 0 18px 50px oklch(8% 0.008 248 / 0.42);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background:
+          linear-gradient(180deg, oklch(20% 0.014 246), var(--bg) 280px),
+          var(--bg);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .app {
+        min-height: 100vh;
+        padding: 18px;
+      }
+
+      .topbar,
+      .workbench {
+        max-width: 1540px;
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 14px;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        line-height: 1.1;
+      }
+
+      h2 {
+        font-size: 1.125rem;
+        line-height: 1.2;
+      }
+
+      .eyebrow {
+        margin-bottom: 5px;
+        color: var(--muted-ink);
+        font-size: 0.72rem;
+        font-weight: 750;
+        text-transform: uppercase;
+      }
+
+      .meta,
+      .subtle,
+      .path,
+      .row-meta,
+      .shortcut {
+        color: var(--muted-ink);
+        font-size: 0.75rem;
+      }
+
+      .mono,
+      .path,
+      .shortcut {
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .badges,
+      .toolbar,
+      .button-row,
+      .split {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .badges {
+        flex-wrap: wrap;
+        justify-content: end;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        gap: 7px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0 9px;
+        color: var(--muted-ink);
+        background: var(--soft);
+        white-space: nowrap;
+      }
+
+      .pill.ok {
+        color: var(--keep);
+        border-color: oklch(49% 0.078 154);
+      }
+
+      .pill.warn {
+        color: var(--warn);
+        border-color: oklch(55% 0.09 68);
+      }
+
+      .workbench {
+        display: grid;
+        grid-template-columns: minmax(230px, 300px) minmax(460px, 1fr) minmax(300px, 380px);
+        gap: 12px;
+      }
+
+      .panel,
+      .stage,
+      .actionbar {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .panel {
+        min-width: 0;
+        padding: 12px;
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .row {
+        display: grid;
+        gap: 7px;
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 10px;
+        color: var(--ink);
+        background: var(--soft);
+        text-align: left;
+        transition:
+          background-color 160ms ease-out,
+          border-color 160ms ease-out,
+          box-shadow 160ms ease-out;
+      }
+
+      .row:hover,
+      .row:focus-visible {
+        outline: none;
+        border-color: var(--warn);
+        box-shadow: 0 0 0 1px oklch(75% 0.12 68 / 0.35);
+      }
+
+      .row.active {
+        border-color: var(--warn);
+        background: var(--lift);
+        box-shadow: 0 0 0 1px oklch(75% 0.12 68 / 0.38);
+      }
+
+      .row.marked {
+        border-color: oklch(50% 0.078 154);
+        background: oklch(24% 0.024 154);
+      }
+
+      .row-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 750;
+      }
+
+      .stage-column {
+        display: grid;
+        grid-template-rows: minmax(460px, 1fr) auto;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .stage {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        overflow: hidden;
+      }
+
+      .stage-top,
+      .stage-bottom {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        min-width: 0;
+      }
+
+      .stage-title {
+        min-width: 0;
+      }
+
+      .stage-title strong,
+      .path {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .preview {
+        display: grid;
+        place-items: center;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        background:
+          radial-gradient(circle at 50% 0, oklch(24% 0.019 246), transparent 42%),
+          linear-gradient(145deg, oklch(10% 0.007 248), oklch(13% 0.009 248));
+      }
+
+      .preview-box {
+        display: grid;
+        place-items: center;
+        width: min(76%, 820px);
+        aspect-ratio: 16 / 9;
+        border: 1px solid oklch(34% 0.018 246);
+        border-radius: 8px;
+        background:
+          linear-gradient(90deg, transparent 0 48%, oklch(40% 0.02 246 / 0.28) 48% 52%, transparent 52%),
+          linear-gradient(180deg, oklch(20% 0.012 246), oklch(12% 0.008 248));
+        color: var(--muted-ink);
+      }
+
+      .actionbar {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 10px;
+      }
+
+      .toolbar,
+      .button-row {
+        flex-wrap: wrap;
+      }
+
+      .button-row {
+        justify-content: end;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0 12px;
+        color: var(--ink);
+        background: var(--soft);
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .btn:hover,
+      .btn:focus-visible {
+        outline: 2px solid var(--warn);
+        outline-offset: 2px;
+      }
+
+      .btn.keep {
+        border-color: transparent;
+        color: var(--keep-ink);
+        background: var(--keep);
+      }
+
+      .btn.reject {
+        border-color: transparent;
+        color: oklch(97% 0.01 31);
+        background: var(--reject);
+      }
+
+      .btn.warn {
+        color: var(--warn);
+        border-color: oklch(58% 0.1 68);
+        background: var(--warn-soft);
+      }
+
+      .meter {
+        height: 8px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: oklch(17% 0.011 246);
+      }
+
+      .meter span {
+        display: block;
+        width: 40%;
+        height: 100%;
+        background: var(--warn);
+      }
+
+      .inline-confirm {
+        display: none;
+        gap: 10px;
+        margin-top: 12px;
+        border: 1px solid oklch(48% 0.13 31);
+        border-radius: 8px;
+        padding: 10px;
+        background: var(--reject-soft);
+      }
+
+      .inline-confirm.open {
+        display: grid;
+      }
+
+      .junk {
+        margin-top: 12px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+
+      details summary {
+        cursor: pointer;
+        color: var(--muted-ink);
+        font-size: 0.8rem;
+        font-weight: 750;
+      }
+
+      @media (max-width: 980px) {
+        .app {
+          padding: 10px;
+        }
+
+        .topbar {
+          display: grid;
+          align-items: start;
+        }
+
+        .badges {
+          justify-content: start;
+        }
+
+        .workbench {
+          grid-template-columns: 1fr;
+        }
+
+        .stage-column {
+          grid-row: 1;
+          grid-template-rows: minmax(360px, 58vh) auto;
+        }
+
+        .actionbar {
+          grid-template-columns: 1fr;
+        }
+
+        .preview-box {
+          width: min(92%, 620px);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Current direction</p>
+          <h1>Iron Ledger</h1>
+        </div>
+        <div class="badges" aria-label="status">
+          <span class="pill ok">Connected</span>
+          <span class="pill">8 ready</span>
+          <span class="pill warn">16 / 40 session slots</span>
+          <button class="pill" type="button">Refresh</button>
+          <button class="pill" type="button">Settings</button>
+        </div>
+      </header>
+
+      <section class="workbench" aria-label="Iron Ledger review queue mockup">
+        <aside class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Completed</p>
+              <h2>Queue</h2>
+            </div>
+            <span class="pill">8</span>
+          </div>
+          <div class="list" data-list="queue">
+            <button class="row active" type="button">
+              <span class="row-title">Ferry.2024.2160p.WEB-DL</span>
+              <span class="row-meta">4 videos, 9.4 GB</span>
+            </button>
+            <button class="row" type="button">
+              <span class="row-title">Archive Set S02</span>
+              <span class="row-meta">2 videos, 5.1 GB</span>
+            </button>
+            <button class="row" type="button">
+              <span class="row-title">Untitled Rip Batch</span>
+              <span class="row-meta">1 video, 1.7 GB</span>
+            </button>
+            <button class="row" type="button">
+              <span class="row-title">Concert.Rough.Cut</span>
+              <span class="row-meta">3 videos, path mapped</span>
+            </button>
+          </div>
+        </aside>
+
+        <section class="stage-column">
+          <section class="stage" aria-label="selected video">
+            <div class="stage-top">
+              <div class="stage-title">
+                <p class="eyebrow">Selected video</p>
+                <strong data-current-title>Ferry.2024.main.mkv</strong>
+              </div>
+              <span class="pill">MKV</span>
+            </div>
+            <div class="preview">
+              <div class="preview-box">Preview stage</div>
+            </div>
+            <div class="stage-bottom">
+              <span class="mono subtle">8f6c21ab</span>
+              <span class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</span>
+            </div>
+          </section>
+
+          <section class="actionbar" aria-label="review actions">
+            <div class="toolbar">
+              <button class="btn" type="button">Prev</button>
+              <button class="btn" type="button">Video -</button>
+              <button class="btn" type="button">Video +</button>
+              <button class="btn" type="button">Next</button>
+            </div>
+            <p class="subtle" data-status>Ready. 1 marked for keep.</p>
+            <div class="button-row">
+              <button class="btn" type="button">Open external</button>
+              <button class="btn keep" type="button" data-action="keep">Keep</button>
+              <button class="btn reject" type="button" data-action="reject">Reject</button>
+            </div>
+          </section>
+        </section>
+
+        <aside class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Video candidates</p>
+              <h2>4 files</h2>
+            </div>
+            <span class="pill">Largest first</span>
+          </div>
+          <div class="row" style="margin-bottom: 12px">
+            <div class="split">
+              <strong>Session folder</strong>
+              <span class="row-meta">16 / 40</span>
+            </div>
+            <div class="meter"><span></span></div>
+            <span class="path">E:\Review\Session 03</span>
+          </div>
+          <div class="list" data-list="candidates">
+            <button class="row active" type="button" data-title="Ferry.2024.main.mkv">
+              <span class="row-title">Ferry.2024.main.mkv</span>
+              <span class="row-meta">5.7 GB, index 0, previewing</span>
+            </button>
+            <button class="row marked" type="button" data-title="Ferry.2024.extra.mkv">
+              <span class="row-title">Ferry.2024.extra.mkv</span>
+              <span class="row-meta">2.8 GB, marked</span>
+            </button>
+            <button class="row" type="button" data-title="sample.mp4">
+              <span class="row-title">sample.mp4</span>
+              <span class="row-meta">74 MB, index 2</span>
+            </button>
+            <button class="row" type="button" data-title="behind-the-scenes.mkv">
+              <span class="row-title">behind-the-scenes.mkv</span>
+              <span class="row-meta">62 MB, index 3</span>
+            </button>
+          </div>
+          <div class="inline-confirm" data-confirm>
+            <strong>Reject deletes torrent files.</strong>
+            <p class="subtle">qBittorrent will remove the torrent and delete files after confirmation.</p>
+            <button class="btn reject" type="button">Confirm reject</button>
+          </div>
+          <details class="junk">
+            <summary>Show 12 junk files, 41 MB</summary>
+            <p class="path">cover.jpg, proof.txt, sample.nfo, thumbs.db</p>
+          </details>
+        </aside>
+      </section>
+    </main>
+
+    <script>
+      const setActive = (selector, item) => {
+        document.querySelectorAll(selector).forEach((row) => row.classList.remove("active"));
+        item.classList.add("active");
+      };
+
+      document.querySelectorAll("[data-list='queue'] .row").forEach((row) => {
+        row.addEventListener("click", () => {
+          setActive("[data-list='queue'] .row", row);
+          document.querySelector("[data-status]").textContent = "Torrent selected. Candidate list refreshed.";
+        });
+      });
+
+      document.querySelectorAll("[data-list='candidates'] .row").forEach((row) => {
+        row.addEventListener("click", () => {
+          setActive("[data-list='candidates'] .row", row);
+          document.querySelector("[data-current-title]").textContent = row.dataset.title;
+          row.classList.toggle("marked");
+          document.querySelector("[data-status]").textContent = row.classList.contains("marked")
+            ? "Candidate marked for keep."
+            : "Candidate unmarked.";
+        });
+      });
+
+      document.querySelector("[data-action='reject']").addEventListener("click", () => {
+        document.querySelector("[data-confirm]").classList.toggle("open");
+      });
+
+      document.querySelector("[data-action='keep']").addEventListener("click", () => {
+        document.querySelector("[data-status]").textContent = "Keep staged: move marked files first, then remove torrent.";
+      });
+    </script>
+  </body>
+</html>

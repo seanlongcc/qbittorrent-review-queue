@@ -1,26 +1,23 @@
-import { useEffect, useMemo, useReducer } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import {
-  AlertTriangle,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Circle,
-  CircleCheck,
-  ExternalLink,
-  FolderOpen,
-  HardDrive,
-  ListVideo,
-  Play,
-  RefreshCw,
-  Settings,
-  Trash2,
-  WifiOff,
-  X,
-} from "lucide-react";
-import { mockSettings, mockTorrents } from "./api/mockData";
-import type { LocalSettings, ReviewTorrent, VideoCandidate } from "./domain/types";
-import { formatBytes, shortHash } from "./review/format";
-import { commandFromKey } from "./review/keyboard";
+  cleanupRetryTorrent,
+  getQueue,
+  getTorrentDetail,
+  keepTorrent,
+  openTorrentFile,
+  rejectTorrent,
+} from "./api/client";
+import {
+  CandidateTable,
+  CandidateTabs,
+  MediaStage,
+  QueueSidebar,
+  SettingsPanel,
+  TitleBar,
+  Toolbar,
+} from "./review/Workbench";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { commandFromKey, type ReviewCommand } from "./review/keyboard";
 import {
   createInitialState,
   getActiveCandidate,
@@ -29,24 +26,188 @@ import {
   getMarkedCandidateIndexes,
   getMarkedCandidates,
   getReviewableTorrents,
+  isActiveTorrentMissing,
   needsKeepConfirmation,
   reviewReducer,
   wouldExceedFolderLimit,
 } from "./review/reviewState";
 
 export function App() {
-  const [state, dispatch] = useReducer(
-    reviewReducer,
-    undefined,
-    () => createInitialState(mockTorrents, mockSettings),
-  );
-
+  const [state, dispatch] = useReducer(reviewReducer, undefined, () => createInitialState());
   const reviewableTorrents = getReviewableTorrents(state);
   const attentionTorrents = getAttentionTorrents(state);
   const activeTorrent = getActiveTorrent(state);
   const activeCandidate = getActiveCandidate(state);
   const markedCandidates = getMarkedCandidates(state);
-  const folderRemaining = Math.max(0, state.settings.sessionFolderLimit - state.settings.folderCount);
+  const markedIndexes = getMarkedCandidateIndexes(state);
+  const activeMissing = isActiveTorrentMissing(state);
+
+  const refreshQueue = useCallback(async () => {
+    dispatch({ type: "queueLoading" });
+    try {
+      const response = await getQueue();
+      dispatch({
+        type: "queueLoaded",
+        torrents: response.torrents,
+        attentionTorrents: response.attentionTorrents,
+        settings: response.settings,
+      });
+    } catch (error) {
+      dispatch({ type: "queueFailed", message: errorMessage(error) });
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshQueue();
+  }, [refreshQueue]);
+
+  useEffect(() => {
+    if (!state.settings.connected) {
+      return;
+    }
+    const interval = window.setInterval(() => {
+      if (document.hidden || state.actionBusy || state.settingsOpen) {
+        return;
+      }
+      void refreshQueue();
+    }, 15_000);
+    return () => window.clearInterval(interval);
+  }, [refreshQueue, state.actionBusy, state.settings.connected, state.settingsOpen]);
+
+  useEffect(() => {
+    if (!state.activeTorrentHash) {
+      return;
+    }
+    const detail = state.detailsByHash[state.activeTorrentHash];
+    if (detail?.candidates) {
+      return;
+    }
+    let active = true;
+    dispatch({ type: "detailLoading" });
+    getTorrentDetail(state.activeTorrentHash)
+      .then((torrent) => {
+        if (active) {
+          dispatch({ type: "detailLoaded", torrent });
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          dispatch({ type: "detailFailed", message: errorMessage(error) });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [state.activeTorrentHash, state.detailsByHash]);
+
+  const runKeep = useCallback(async () => {
+    const torrent = getActiveTorrent(state);
+    const marked = getMarkedCandidates(state);
+    if (isActiveTorrentMissing(state)) {
+      dispatch({ type: "keep" });
+      return;
+    }
+    if (!torrent || marked.length === 0 || wouldExceedFolderLimit(state)) {
+      dispatch({ type: "keep" });
+      return;
+    }
+    const confirmationNeeded = needsKeepConfirmation(state);
+    if (confirmationNeeded && state.armedAction !== "keep") {
+      dispatch({ type: "keep" });
+      return;
+    }
+    dispatch({ type: "actionStarted", label: "Keeping marked files." });
+    try {
+      await keepTorrent(torrent.hash, {
+        fileIndexes: marked.map((candidate) => candidate.fileIndex),
+        confirmed: confirmationNeeded,
+      });
+      dispatch({ type: "actionFinished", notice: `Kept ${marked.length} video${marked.length === 1 ? "" : "s"}.` });
+      await refreshQueue();
+    } catch (error) {
+      dispatch({ type: "actionFailed", message: errorMessage(error) });
+    }
+  }, [refreshQueue, state]);
+
+  const runReject = useCallback(async () => {
+    const torrent = getActiveTorrent(state);
+    if (isActiveTorrentMissing(state)) {
+      dispatch({ type: "reject" });
+      return;
+    }
+    if (!torrent) {
+      return;
+    }
+    if (state.armedAction !== "reject") {
+      dispatch({ type: "reject" });
+      return;
+    }
+    dispatch({ type: "actionStarted", label: "Rejecting torrent with deleteFiles=true." });
+    try {
+      await rejectTorrent(torrent.hash, { confirmed: true });
+      dispatch({ type: "actionFinished", notice: "Rejected torrent and files." });
+      await refreshQueue();
+    } catch (error) {
+      dispatch({ type: "actionFailed", message: errorMessage(error) });
+    }
+  }, [refreshQueue, state]);
+
+  const runOpenExternal = useCallback(async () => {
+    const torrent = getActiveTorrent(state);
+    const candidate = getActiveCandidate(state);
+    if (isActiveTorrentMissing(state)) {
+      dispatch({ type: "actionFailed", message: "Selected torrent no longer in qBittorrent. Choose Next or Refresh." });
+      return;
+    }
+    if (!torrent || !candidate) {
+      dispatch({ type: "openExternal" });
+      return;
+    }
+    dispatch({ type: "actionStarted", label: `Opening ${candidate.name}.` });
+    try {
+      await openTorrentFile(torrent.hash, candidate.fileIndex);
+      dispatch({ type: "actionFinished", notice: `Opened ${candidate.name}.` });
+    } catch (error) {
+      dispatch({ type: "actionFailed", message: errorMessage(error) });
+    }
+  }, [state]);
+
+  const runCleanupRetry = useCallback(
+    async (hash: string) => {
+      dispatch({ type: "actionStarted", label: "Retrying qBittorrent cleanup." });
+      try {
+        await cleanupRetryTorrent(hash, { confirmed: true });
+        dispatch({ type: "actionFinished", notice: "Cleanup retry completed." });
+        await refreshQueue();
+      } catch (error) {
+        dispatch({ type: "actionFailed", message: errorMessage(error) });
+      }
+    },
+    [refreshQueue],
+  );
+
+  const handleCommand = useCallback(
+    (command: ReviewCommand) => {
+      if (command === "refreshQueue") {
+        void refreshQueue();
+        return;
+      }
+      if (command === "keep") {
+        void runKeep();
+        return;
+      }
+      if (command === "reject") {
+        void runReject();
+        return;
+      }
+      if (command === "openExternal") {
+        void runOpenExternal();
+        return;
+      }
+      dispatch({ type: command });
+    },
+    [refreshQueue, runKeep, runOpenExternal, runReject],
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -54,494 +215,82 @@ export function App() {
       if (!command) {
         return;
       }
-
       event.preventDefault();
-      dispatch({ type: command });
+      handleCommand(command);
     };
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [handleCommand]);
 
-  const keepBlocked = markedCandidates.length === 0 || wouldExceedFolderLimit(state);
-  const keepTone = state.armedAction === "keep" ? "warning" : "primary";
-  const rejectTone = state.armedAction === "reject" ? "danger-confirm" : "danger";
-
-  return (
-    <main className="review-shell">
-      <header className="top-bar">
-        <div>
-          <p className="eyebrow">Local qBittorrent</p>
-          <h1>Review Queue</h1>
-        </div>
-        <div className="top-bar__meta" aria-label="Queue summary">
-          <StatusPill connected={state.settings.connected} />
-          <span className="mono-pill">{reviewableTorrents.length} ready</span>
-          <span className="mono-pill">{folderRemaining} folder slots</span>
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Refresh queue"
-            title="Refresh queue"
-            onClick={() => dispatch({ type: "cancel" })}
-          >
-            <RefreshCw size={17} />
-          </button>
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Open settings"
-            title="Open settings"
-            onClick={() => dispatch({ type: "toggleSettings" })}
-          >
-            <Settings size={17} />
-          </button>
-        </div>
-      </header>
-
-      <section className="workbench" aria-label="Review workbench">
-        <QueueRail
-          torrents={reviewableTorrents}
-          attentionTorrents={attentionTorrents}
-          activeHash={state.activeTorrentHash}
-          onSelect={(hash) => dispatch({ type: "selectTorrent", hash })}
-        />
-
-        <section className="stage-column" aria-label="Selected video">
-          <MediaStage torrent={activeTorrent} candidate={activeCandidate} />
-          <ActionBar
-            activeTorrent={activeTorrent}
-            activeCandidate={activeCandidate}
-            markedCount={markedCandidates.length}
-            keepBlocked={keepBlocked}
-            keepTone={keepTone}
-            rejectTone={rejectTone}
-            needsKeepConfirmation={needsKeepConfirmation(state)}
-            armedAction={state.armedAction}
-            notice={state.notice}
-            onPreviousTorrent={() => dispatch({ type: "previousTorrent" })}
-            onNextTorrent={() => dispatch({ type: "nextTorrent" })}
-            onPreviousCandidate={() => dispatch({ type: "previousCandidate" })}
-            onNextCandidate={() => dispatch({ type: "nextCandidate" })}
-            onOpenExternal={() => dispatch({ type: "openExternal" })}
-            onKeep={() => dispatch({ type: "keep" })}
-            onReject={() => dispatch({ type: "reject" })}
-            onCancel={() => dispatch({ type: "cancel" })}
-          />
-        </section>
-
-        <CandidateRail
-          torrent={activeTorrent}
-          activeCandidateIndex={state.activeCandidateIndex}
-          markedIndexes={getMarkedCandidateIndexes(state)}
-          settings={state.settings}
-          settingsOpen={state.settingsOpen}
-          onSelectCandidate={(index) => dispatch({ type: "selectCandidate", index })}
-          onToggleMark={(index) => dispatch({ type: "toggleMark", index })}
-          onToggleSettings={() => dispatch({ type: "toggleSettings" })}
-          onUpdateSettings={(settings) => dispatch({ type: "updateSettings", settings })}
-        />
-      </section>
-    </main>
-  );
-}
-
-function StatusPill({ connected }: { connected: boolean }) {
-  return (
-    <span className={connected ? "status-pill status-pill--ok" : "status-pill status-pill--off"}>
-      {connected ? <Check size={14} /> : <WifiOff size={14} />}
-      {connected ? "Connected" : "Sample data"}
-    </span>
-  );
-}
-
-function QueueRail({
-  torrents,
-  attentionTorrents,
-  activeHash,
-  onSelect,
-}: {
-  torrents: ReviewTorrent[];
-  attentionTorrents: ReviewTorrent[];
-  activeHash: string | null;
-  onSelect: (hash: string) => void;
-}) {
-  return (
-    <aside className="rail queue-rail" aria-label="Review queue">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Completed</p>
-          <h2>Queue</h2>
-        </div>
-        <span className="count-badge">{torrents.length}</span>
-      </div>
-
-      <div className="queue-list">
-        {torrents.map((torrent) => (
-          <button
-            className={torrent.hash === activeHash ? "queue-row queue-row--active" : "queue-row"}
-            key={torrent.hash}
-            type="button"
-            onClick={() => onSelect(torrent.hash)}
-          >
-            <span className="queue-row__title">{torrent.name}</span>
-            <span className="queue-row__meta">
-              <ListVideo size={14} />
-              {torrent.candidates.length} videos
-              <span>{formatBytes(torrent.totalSizeBytes)}</span>
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <details className="attention-block" open={attentionTorrents.length > 0}>
-        <summary>
-          <AlertTriangle size={15} />
-          Needs attention
-          <span>{attentionTorrents.length}</span>
-        </summary>
-        <div className="attention-list">
-          {attentionTorrents.map((torrent) => (
-            <div className="attention-row" key={torrent.hash}>
-              <strong>{torrent.name}</strong>
-              <span>{torrent.attentionDetail ?? torrent.attentionReason}</span>
-            </div>
-          ))}
-        </div>
-      </details>
-    </aside>
-  );
-}
-
-function MediaStage({
-  torrent,
-  candidate,
-}: {
-  torrent: ReviewTorrent | null;
-  candidate: VideoCandidate | null;
-}) {
-  const mediaSrc = useMemo(() => {
-    if (!torrent || !candidate) {
-      return "";
+  useEffect(() => {
+    if (!state.armedAction) {
+      return;
     }
-    return `/media/${torrent.hash}/${candidate.fileIndex}`;
-  }, [candidate, torrent]);
+    const timeout = window.setTimeout(() => {
+      dispatch({ type: "cancel" });
+    }, 8_000);
+    return () => window.clearTimeout(timeout);
+  }, [state.activeTorrentHash, state.armedAction, markedIndexes]);
 
   return (
-    <section className="media-stage" aria-label="Media preview">
-      {torrent && candidate ? (
-        <>
-          <div className="media-stage__chrome">
-            <div className="media-title">
-              <Play size={16} />
-              <span>{candidate.name}</span>
-            </div>
-            <span className="mono-pill">{candidate.extension.toUpperCase()}</span>
-          </div>
-          <div className="preview-frame">
-            {candidate.playable ? (
-              <video className="preview-video" controls preload="metadata" src={mediaSrc} />
-            ) : (
-              <PreviewUnavailable candidate={candidate} />
-            )}
-          </div>
-          <div className="path-strip">
-            <span>{shortHash(torrent.hash)}</span>
-            <span>{candidate.path}</span>
-          </div>
-        </>
-      ) : (
-        <div className="empty-stage">
-          <HardDrive size={28} />
-          <h2>Queue empty</h2>
-          <p>No completed torrents are ready.</p>
-        </div>
-      )}
-    </section>
-  );
-}
-
-function PreviewUnavailable({ candidate }: { candidate: VideoCandidate }) {
-  return (
-    <div className="preview-unavailable">
-      <div className="preview-grid" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-        <span />
-        <span />
-        <span />
-      </div>
-      <div>
-        <p className="eyebrow">External player</p>
-        <h2>{candidate.name}</h2>
-        <p>{formatBytes(candidate.sizeBytes)}</p>
-      </div>
-    </div>
-  );
-}
-
-function ActionBar({
-  activeTorrent,
-  activeCandidate,
-  markedCount,
-  keepBlocked,
-  keepTone,
-  rejectTone,
-  needsKeepConfirmation: keepNeedsConfirmation,
-  armedAction,
-  notice,
-  onPreviousTorrent,
-  onNextTorrent,
-  onPreviousCandidate,
-  onNextCandidate,
-  onOpenExternal,
-  onKeep,
-  onReject,
-  onCancel,
-}: {
-  activeTorrent: ReviewTorrent | null;
-  activeCandidate: VideoCandidate | null;
-  markedCount: number;
-  keepBlocked: boolean;
-  keepTone: "primary" | "warning";
-  rejectTone: "danger" | "danger-confirm";
-  needsKeepConfirmation: boolean;
-  armedAction: "keep" | "reject" | null;
-  notice: string;
-  onPreviousTorrent: () => void;
-  onNextTorrent: () => void;
-  onPreviousCandidate: () => void;
-  onNextCandidate: () => void;
-  onOpenExternal: () => void;
-  onKeep: () => void;
-  onReject: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <section className="action-bar" aria-label="Review actions">
-      <div className="action-bar__nav">
-        <button className="icon-button" type="button" aria-label="Previous torrent" onClick={onPreviousTorrent}>
-          <ChevronLeft size={18} />
-        </button>
-        <button className="icon-button" type="button" aria-label="Previous video" onClick={onPreviousCandidate}>
-          <ChevronLeft size={18} />
-          <ListVideo size={15} />
-        </button>
-        <button className="icon-button" type="button" aria-label="Next video" onClick={onNextCandidate}>
-          <ListVideo size={15} />
-          <ChevronRight size={18} />
-        </button>
-        <button className="icon-button" type="button" aria-label="Next torrent" onClick={onNextTorrent}>
-          <ChevronRight size={18} />
-        </button>
-      </div>
-
-      <div className="action-status" role="status">
-        <span>{notice}</span>
-        <span className="mono-pill">{markedCount} marked</span>
-      </div>
-
-      <div className="action-bar__commands">
-        <button
-          className="button button--outline"
-          type="button"
-          disabled={!activeCandidate}
-          onClick={onOpenExternal}
-        >
-          <ExternalLink size={16} />
-          Open
-        </button>
-        <button
-          className={`button button--${keepTone}`}
-          type="button"
-          disabled={!activeTorrent || keepBlocked}
-          onClick={onKeep}
-        >
-          <Check size={16} />
-          {armedAction === "keep" && keepNeedsConfirmation ? "Confirm Keep" : "Keep"}
-        </button>
-        <button
-          className={`button button--${rejectTone}`}
-          type="button"
-          disabled={!activeTorrent}
-          onClick={onReject}
-        >
-          <Trash2 size={16} />
-          {armedAction === "reject" ? "Confirm Reject" : "Reject"}
-        </button>
-        {armedAction ? (
-          <button className="icon-button" type="button" aria-label="Cancel action" onClick={onCancel}>
-            <X size={17} />
-          </button>
+    <TooltipProvider>
+      <main className="qbt-shell">
+        <TitleBar settings={state.settings} />
+        <Toolbar
+          busy={state.loadingQueue || state.actionBusy}
+          armedAction={state.armedAction}
+          canOpen={Boolean(activeCandidate) && !activeMissing}
+          canReview={Boolean(activeTorrent) && !activeMissing}
+          onCommand={handleCommand}
+        />
+        <section className="qbt-main" aria-label="Review workbench">
+          <QueueSidebar
+            torrents={reviewableTorrents}
+            attentionTorrents={attentionTorrents}
+            activeHash={state.activeTorrentHash}
+            settings={state.settings}
+            busy={state.actionBusy}
+            onSelect={(hash) => dispatch({ type: "selectTorrent", hash })}
+            onCleanupRetry={(hash) => void runCleanupRetry(hash)}
+          />
+          <section className="qbt-center">
+            <MediaStage torrent={activeTorrent} candidate={activeCandidate} loading={state.loadingDetail} />
+            <CandidateTabs onCommand={handleCommand} />
+            <CandidateTable
+              torrent={activeTorrent}
+              activeCandidate={activeCandidate}
+              markedIndexes={markedIndexes}
+              settings={state.settings}
+              armedAction={state.armedAction}
+              busy={state.actionBusy}
+              activeMissing={activeMissing}
+              keepBlocked={activeMissing || markedCandidates.length === 0 || wouldExceedFolderLimit(state)}
+              notice={state.notice}
+              onSelectCandidate={(index) => dispatch({ type: "selectCandidate", index })}
+              onToggleMark={(fileIndex) => dispatch({ type: "toggleMark", fileIndex })}
+              onCommand={handleCommand}
+            />
+          </section>
+        </section>
+        {state.settingsOpen ? (
+          <SettingsPanel
+            settings={state.settings}
+            onClose={() => dispatch({ type: "toggleSettings" })}
+            onSaved={(settings) => {
+              dispatch({ type: "settingsUpdated", settings });
+              void refreshQueue();
+            }}
+          />
         ) : null}
-      </div>
-    </section>
+        <footer className="qbt-statusbar">
+          <span>{state.notice}</span>
+          <span>Left-hand keys only: Q E R T, A S D F, Z X.</span>
+        </footer>
+      </main>
+    </TooltipProvider>
   );
 }
 
-function CandidateRail({
-  torrent,
-  activeCandidateIndex,
-  markedIndexes,
-  settings,
-  settingsOpen,
-  onSelectCandidate,
-  onToggleMark,
-  onToggleSettings,
-  onUpdateSettings,
-}: {
-  torrent: ReviewTorrent | null;
-  activeCandidateIndex: number;
-  markedIndexes: number[];
-  settings: LocalSettings;
-  settingsOpen: boolean;
-  onSelectCandidate: (index: number) => void;
-  onToggleMark: (index: number) => void;
-  onToggleSettings: () => void;
-  onUpdateSettings: (settings: Partial<LocalSettings>) => void;
-}) {
-  return (
-    <aside className="rail candidate-rail" aria-label="Torrent detail">
-      {settingsOpen ? (
-        <SettingsPanel settings={settings} onClose={onToggleSettings} onUpdate={onUpdateSettings} />
-      ) : (
-        <>
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Video candidates</p>
-              <h2>{torrent?.candidates.length ?? 0} files</h2>
-            </div>
-            <FolderOpen size={18} />
-          </div>
-          <div className="capacity-meter" aria-label="Session folder capacity">
-            <div>
-              <span>{settings.folderCount}</span>
-              <span>/ {settings.sessionFolderLimit}</span>
-            </div>
-            <meter min={0} max={settings.sessionFolderLimit} value={settings.folderCount} />
-          </div>
-          <div className="candidate-list" aria-label="Video candidates">
-            {torrent?.candidates.map((candidate, index) => {
-              const marked = markedIndexes.includes(index);
-              const active = index === activeCandidateIndex;
-              return (
-                <div
-                  className={[
-                    "candidate-row",
-                    active ? "candidate-row--active" : "",
-                    marked ? "candidate-row--marked" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  key={candidate.fileIndex}
-                >
-                  <button
-                    className="candidate-row__main"
-                    type="button"
-                    onClick={() => onSelectCandidate(index)}
-                  >
-                    <span className="candidate-row__name">{candidate.name}</span>
-                    <span className="candidate-row__meta">
-                      {formatBytes(candidate.sizeBytes)}
-                      <span>index {candidate.fileIndex}</span>
-                    </span>
-                  </button>
-                  <button
-                    className="mark-button"
-                    type="button"
-                    aria-pressed={marked}
-                    aria-label={marked ? "Unmark candidate" : "Mark candidate"}
-                    onClick={() => onToggleMark(index)}
-                  >
-                    {marked ? <CircleCheck size={18} /> : <Circle size={18} />}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-          <details className="junk-block">
-            <summary>
-              Junk files
-              <span>{torrent?.junkFiles.length ?? 0}</span>
-            </summary>
-            <div className="junk-list">
-              {torrent?.junkFiles.map((file) => (
-                <div className="junk-row" key={file.fileIndex}>
-                  <span>{file.name}</span>
-                  <span>{formatBytes(file.sizeBytes)}</span>
-                </div>
-              ))}
-            </div>
-          </details>
-        </>
-      )}
-    </aside>
-  );
-}
-
-function SettingsPanel({
-  settings,
-  onClose,
-  onUpdate,
-}: {
-  settings: LocalSettings;
-  onClose: () => void;
-  onUpdate: (settings: Partial<LocalSettings>) => void;
-}) {
-  return (
-    <form
-      className="settings-panel"
-      aria-label="Settings"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">Local settings</p>
-          <h2>Connection</h2>
-        </div>
-        <button className="icon-button" type="button" aria-label="Close settings" onClick={onClose}>
-          <X size={17} />
-        </button>
-      </div>
-
-      <label>
-        WebUI URL
-        <input
-          value={settings.qbtBaseUrl}
-          onChange={(event) => onUpdate({ qbtBaseUrl: event.target.value })}
-        />
-      </label>
-      <label>
-        Username
-        <input
-          value={settings.qbtUsername}
-          onChange={(event) => onUpdate({ qbtUsername: event.target.value })}
-        />
-      </label>
-      <label>
-        Session folder
-        <input
-          value={settings.sessionFolder}
-          onChange={(event) => onUpdate({ sessionFolder: event.target.value })}
-        />
-      </label>
-      <label>
-        Folder limit
-        <input
-          type="number"
-          min={1}
-          value={settings.sessionFolderLimit}
-          onChange={(event) => onUpdate({ sessionFolderLimit: Number(event.target.value) })}
-        />
-      </label>
-      <button className="button button--primary" type="submit">
-        <Check size={16} />
-        Apply
-      </button>
-    </form>
-  );
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown error";
 }

@@ -253,12 +253,16 @@ _Avoid_: Raw path, file URL
 - **Candidate Marking** is independent from active preview focus.
 - Candidate rows expose checkbox-style **Candidate Marking**.
 - **Left-Hand Keyboard Model** is the primary keyboard model.
-- `W` and `S` move the **Active Candidate** up and down.
-- `A` and `D` move to previous and next torrent in the **Review Queue**.
-- `Space` toggles **Candidate Marking** for the **Active Candidate**.
-- `Q` triggers **Keep** or **Armed Keep** confirmation.
-- `E` enters or confirms **Armed Reject**.
-- `Enter` opens **External Open** for the **Active Candidate**.
+- The visible left-hand key set is `Q E R T`, `A S D F`, and `Z X`.
+- `Q` refreshes the **Review Queue**.
+- `E` opens **External Open** for the **Active Candidate**.
+- `R` enters or confirms **Armed Reject**.
+- `T` toggles settings.
+- `A` and `S` move to previous and next torrent in the **Review Queue**.
+- `Z` and `X` move the **Active Candidate** up and down.
+- `D` toggles **Candidate Marking** for the **Active Candidate**.
+- `F` triggers **Keep** or **Armed Keep** confirmation.
+- `Space` may mirror `D` as a secondary mark shortcut.
 - `Esc` cancels **Armed Keep** and **Armed Reject**.
 - Arrow keys may mirror navigation as secondary shortcuts.
 - **Left-Hand Keyboard Model** shortcuts are disabled during **Typing Context**.
@@ -348,7 +352,7 @@ _Avoid_: Raw path, file URL
 - "selected video" could mean preview focus or Keep intent. Resolved: **Selected Video** means current preview/open focus; **Marked Candidate** means a video candidate chosen for Keep.
 - "default selected" could mean all likely videos are kept automatically. Resolved: **Default Mark** marks only the largest video candidate.
 - "candidate selection" could mean preview focus or Keep marking. Resolved: **Active Candidate** is keyboard focus/preview target; **Marked Candidate** is Keep intent; rows expose checkbox-style **Candidate Marking**.
-- "keyboard-first" could imply arrow-key navigation. Resolved: **Left-Hand Keyboard Model** is primary, with WASD and Space for one-handed review; arrows are secondary.
+- "keyboard-first" could imply arrow-key navigation. Resolved: **Left-Hand Keyboard Model** is primary, with visible `Q E R T`, `A S D F`, and `Z X` controls for one-handed review; arrows and `Space` are secondary.
 - "global shortcuts" could mean firing while typing in settings. Resolved: review shortcuts are disabled during **Typing Context**, with `Esc` reserved for cancel/blur behavior.
 - "completed" could mean qBittorrent's completed filter or app-safe review readiness. Resolved: **Completed Torrent** requires qBittorrent completed filter, `progress == 1`, and no error or missing-content state; otherwise it is an **Attention Torrent**.
 - "path" could mean qBittorrent metadata, WSL filesystem access, or browser media route. Resolved: **Torrent File Path** is built from `content_path` for **Single-File Torrent** or `save_path` plus file `name` for **Multi-File Torrent**, then **Path Mapping** converts it for local access.

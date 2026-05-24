@@ -1,4 +1,5 @@
 export type ReviewCommand =
+  | "refreshQueue"
   | "previousTorrent"
   | "nextTorrent"
   | "previousCandidate"
@@ -7,6 +8,7 @@ export type ReviewCommand =
   | "keep"
   | "reject"
   | "openExternal"
+  | "toggleSettings"
   | "cancel";
 
 export function isTypingTarget(target: EventTarget | null): boolean {
@@ -30,29 +32,35 @@ export function commandFromKey(event: KeyboardEvent): ReviewCommand | null {
 
   const key = event.key.toLowerCase();
 
+  if (key === "q") {
+    return "refreshQueue";
+  }
+  if (key === "e") {
+    return "openExternal";
+  }
+  if (key === "r") {
+    return "reject";
+  }
+  if (key === "t") {
+    return "toggleSettings";
+  }
   if (key === "a" || event.key === "ArrowLeft") {
     return "previousTorrent";
   }
-  if (key === "d" || event.key === "ArrowRight") {
+  if (key === "s" || event.key === "ArrowRight") {
     return "nextTorrent";
   }
-  if (key === "w" || event.key === "ArrowUp") {
+  if (key === "z" || event.key === "ArrowUp") {
     return "previousCandidate";
   }
-  if (key === "s" || event.key === "ArrowDown") {
+  if (key === "x" || event.key === "ArrowDown") {
     return "nextCandidate";
   }
-  if (event.code === "Space") {
+  if (key === "d" || event.code === "Space") {
     return "toggleMark";
   }
-  if (key === "q") {
+  if (key === "f") {
     return "keep";
-  }
-  if (key === "e") {
-    return "reject";
-  }
-  if (key === "enter") {
-    return "openExternal";
   }
   if (key === "escape") {
     return "cancel";

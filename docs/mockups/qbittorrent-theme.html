@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Dark qBittorrent Review Queue Mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(15% 0.012 242);
+        --ink: oklch(91% 0.012 92);
+        --muted: oklch(69% 0.025 92);
+        --faint: oklch(51% 0.023 242);
+        --panel: oklch(20% 0.014 242);
+        --panel-2: oklch(24% 0.017 242);
+        --rail: oklch(18% 0.015 242);
+        --head: oklch(27% 0.026 242);
+        --line: oklch(34% 0.026 242);
+        --line-strong: oklch(45% 0.046 242);
+        --blue: oklch(61% 0.15 247);
+        --blue-dark: oklch(43% 0.13 247);
+        --blue-soft: oklch(26% 0.055 247);
+        --green: oklch(67% 0.14 143);
+        --green-soft: oklch(25% 0.052 143);
+        --red: oklch(62% 0.18 28);
+        --red-soft: oklch(26% 0.06 28);
+        --key: oklch(78% 0.12 82);
+        font-family:
+          "Segoe UI", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background: var(--bg);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+      }
+
+      .titlebar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 38px;
+        border-bottom: 1px solid var(--line-strong);
+        padding: 0 12px;
+        background: linear-gradient(180deg, oklch(26% 0.024 242), oklch(20% 0.018 242));
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        min-width: 0;
+        gap: 9px;
+        font-weight: 750;
+      }
+
+      .brand span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .drop {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 18px;
+        border-radius: 50% 50% 50% 18%;
+        background: linear-gradient(145deg, oklch(76% 0.13 241), var(--blue));
+        transform: rotate(-45deg);
+        box-shadow: inset 0 1px 0 oklch(93% 0.02 236 / 0.45);
+      }
+
+      .toolbar,
+      .statusbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border-bottom: 1px solid var(--line);
+        padding: 6px 10px;
+        background: var(--panel);
+      }
+
+      .toolbar {
+        flex-wrap: wrap;
+      }
+
+      .tool,
+      .tab,
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 0 10px;
+        color: var(--ink);
+        background: linear-gradient(180deg, var(--panel-2), oklch(18% 0.014 242));
+        font-weight: 680;
+        white-space: nowrap;
+      }
+
+      .tool:hover,
+      .tool:focus-visible,
+      .tab:focus-visible,
+      .btn:focus-visible {
+        outline: 2px solid var(--key);
+        outline-offset: 1px;
+      }
+
+      .tool.primary,
+      .btn.primary,
+      .tab.active {
+        color: oklch(96% 0.01 247);
+        border-color: var(--blue-dark);
+        background: linear-gradient(180deg, oklch(57% 0.14 247), var(--blue-dark));
+      }
+
+      .tool.keep,
+      .btn.keep {
+        color: oklch(11% 0.009 143);
+        border-color: oklch(47% 0.13 143);
+        background: linear-gradient(180deg, oklch(72% 0.14 143), oklch(58% 0.13 143));
+      }
+
+      .tool.reject,
+      .btn.reject {
+        color: oklch(97% 0.01 28);
+        border-color: oklch(44% 0.15 28);
+        background: linear-gradient(180deg, oklch(66% 0.17 28), oklch(49% 0.17 28));
+      }
+
+      kbd {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        min-height: 20px;
+        border: 1px solid oklch(50% 0.07 82);
+        border-radius: 4px;
+        padding: 0 6px;
+        color: var(--key);
+        background: oklch(14% 0.01 242);
+        font:
+          700 0.72rem "IBM Plex Mono",
+          ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .main {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 238px minmax(460px, 1fr);
+      }
+
+      .sidebar {
+        min-width: 0;
+        border-right: 1px solid var(--line);
+        background: var(--rail);
+      }
+
+      .side-head,
+      .section-head,
+      .rail-status {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        border-bottom: 1px solid var(--line);
+        padding: 8px 10px;
+        background: var(--head);
+        font-size: 0.8rem;
+        font-weight: 760;
+      }
+
+      .rail-status {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        padding: 8px;
+        background: oklch(16% 0.013 242);
+      }
+
+      .rail-status span {
+        display: grid;
+        gap: 2px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 6px 7px;
+        background: var(--panel);
+      }
+
+      .rail-status strong {
+        color: var(--ink);
+        font-size: 0.88rem;
+      }
+
+      .rail-status em {
+        color: var(--muted);
+        font-style: normal;
+        font-size: 0.68rem;
+      }
+
+      .filter,
+      .torrent {
+        width: 100%;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 9px 10px;
+        color: var(--ink);
+        background: transparent;
+        text-align: left;
+      }
+
+      .filter {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .filter.active,
+      .torrent.active,
+      tr.selected {
+        background: var(--blue-soft);
+        box-shadow: inset 0 0 0 1px oklch(56% 0.1 247);
+      }
+
+      .torrent {
+        display: grid;
+        gap: 4px;
+      }
+
+      .name,
+      .path {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .name {
+        font-weight: 720;
+      }
+
+      .meta,
+      .path,
+      .statusbar,
+      .cell-muted {
+        color: var(--muted);
+        font-size: 0.75rem;
+      }
+
+      .center {
+        min-width: 0;
+        display: grid;
+        grid-template-rows: minmax(310px, 1fr) auto minmax(190px, 0.48fr);
+        background: var(--panel);
+      }
+
+      .preview-head,
+      .tabs,
+      .candidate-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        border-bottom: 1px solid var(--line);
+        padding: 8px 10px;
+        background: oklch(18% 0.014 242);
+      }
+
+      .preview-head > div {
+        min-width: 0;
+      }
+
+      .preview {
+        display: grid;
+        place-items: center;
+        min-height: 0;
+        overflow: hidden;
+        background:
+          linear-gradient(45deg, oklch(18% 0.01 242) 25%, transparent 25% 75%, oklch(18% 0.01 242) 75%),
+          linear-gradient(45deg, oklch(18% 0.01 242) 25%, transparent 25% 75%, oklch(18% 0.01 242) 75%),
+          oklch(14% 0.009 242);
+        background-position:
+          0 0,
+          14px 14px,
+          0 0;
+        background-size:
+          28px 28px,
+          28px 28px,
+          auto;
+      }
+
+      .video {
+        display: grid;
+        place-items: center;
+        width: min(78%, 900px);
+        aspect-ratio: 16 / 9;
+        border: 1px solid var(--line-strong);
+        border-radius: 4px;
+        background:
+          linear-gradient(90deg, transparent 0 49%, oklch(49% 0.04 236 / 0.26) 49% 51%, transparent 51%),
+          linear-gradient(180deg, oklch(25% 0.02 244), oklch(10% 0.012 244));
+        color: oklch(86% 0.02 236);
+      }
+
+      .tabs {
+        justify-content: start;
+        border-top: 1px solid var(--line);
+        flex-wrap: wrap;
+      }
+
+      .candidate-panel {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow: auto;
+      }
+
+      section[aria-label="video candidates"] {
+        min-width: 0;
+      }
+
+      table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 7px 8px;
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      th {
+        background: var(--head);
+        font-weight: 760;
+      }
+
+      tbody tr {
+        cursor: pointer;
+      }
+
+      tbody tr:hover {
+        background: var(--panel-2);
+      }
+
+      tr.marked {
+        background: var(--green-soft);
+      }
+
+      tr.marked td:first-child {
+        color: var(--green);
+      }
+
+      .candidate-actions {
+        border-top: 1px solid var(--line);
+        border-bottom: 0;
+        flex-wrap: wrap;
+      }
+
+      .confirm {
+        display: none;
+        width: 100%;
+        border: 1px solid oklch(55% 0.14 28);
+        border-radius: 4px;
+        padding: 9px;
+        background: var(--red-soft);
+      }
+
+      .confirm.open {
+        display: grid;
+        gap: 8px;
+      }
+
+      .statusbar {
+        justify-content: space-between;
+        border-top: 1px solid var(--line);
+        border-bottom: 0;
+      }
+
+      @media (max-width: 980px) {
+        .main {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          border-right: 0;
+          border-top: 1px solid var(--line);
+        }
+
+        .center {
+          grid-row: 1;
+          grid-template-rows: minmax(320px, 54vh) auto minmax(210px, auto);
+        }
+
+        .preview-head {
+          display: grid;
+          align-items: start;
+        }
+
+        .preview-head .meta {
+          justify-self: start;
+          white-space: normal;
+        }
+
+        .video {
+          width: min(92vw, 650px);
+        }
+
+        .toolbar,
+        .candidate-actions {
+          align-items: start;
+        }
+
+        .statusbar {
+          display: grid;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .titlebar {
+          align-items: start;
+          display: grid;
+          padding: 7px 10px;
+        }
+
+        .tool,
+        .btn {
+          flex: 1 1 auto;
+        }
+
+        .candidate-panel {
+          overflow-x: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="titlebar">
+        <div class="brand"><span class="drop"></span><span>qBittorrent Review Queue</span></div>
+        <span class="meta">WebUI local, 127.0.0.1:8080</span>
+      </header>
+      <div class="toolbar" aria-label="toolbar">
+        <button class="tool primary" type="button" data-command="refresh"><kbd>Q</kbd>Refresh</button>
+        <button class="tool" type="button" data-command="open"><kbd>E</kbd>Open external</button>
+        <button class="tool keep" type="button" data-action="keep"><kbd>F</kbd>Keep marked</button>
+        <button class="tool reject" type="button" data-action="reject"><kbd>R</kbd>Reject torrent</button>
+        <button class="tool" type="button" data-command="settings"><kbd>T</kbd>Settings</button>
+      </div>
+
+      <section class="main" aria-label="dark qBittorrent themed mockup">
+        <aside class="sidebar">
+          <div class="rail-status" aria-label="queue and session status">
+            <span><strong>8</strong><em>completed</em></span>
+            <span><strong>16 / 40</strong><em>session slots</em></span>
+            <span><strong>7</strong><em>with video</em></span>
+            <span><strong>API ok</strong><em>local WebUI</em></span>
+          </div>
+          <div class="side-head"><span>Filters</span><span>8</span></div>
+          <button class="filter active" type="button"><span>Completed</span><span>8</span></button>
+          <button class="filter" type="button"><span>Has video</span><span>7</span></button>
+          <button class="filter" type="button"><span>Needs mapping</span><span>1</span></button>
+          <div class="side-head"><span>Torrents</span><span>Size</span></div>
+          <button class="torrent active" type="button">
+            <span class="name">Ferry.2024.2160p.WEB-DL</span>
+            <span class="meta">4 videos, 9.4 GB</span>
+          </button>
+          <button class="torrent" type="button">
+            <span class="name">Archive Set S02</span>
+            <span class="meta">2 videos, 5.1 GB</span>
+          </button>
+          <button class="torrent" type="button">
+            <span class="name">Concert.Rough.Cut</span>
+            <span class="meta">3 videos, 4.8 GB</span>
+          </button>
+          <button class="torrent" type="button">
+            <span class="name">Old.Batches.Mixed</span>
+            <span class="meta">7 files, 3.1 GB</span>
+          </button>
+        </aside>
+
+        <section class="center">
+          <section>
+            <div class="preview-head">
+              <div>
+                <strong data-current-title>Ferry.2024.main.mkv</strong>
+                <p class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</p>
+              </div>
+              <span class="meta">index 0, 5.7 GB, browser preview ready</span>
+            </div>
+            <div class="preview">
+              <div class="video">Embedded preview</div>
+            </div>
+          </section>
+          <div class="tabs">
+            <button class="tab active" type="button"><kbd>D</kbd>Candidates</button>
+            <button class="tab" type="button"><kbd>A</kbd>Prev torrent</button>
+            <button class="tab" type="button"><kbd>S</kbd>Next torrent</button>
+            <button class="tab" type="button"><kbd>Z</kbd>Prev video</button>
+            <button class="tab" type="button"><kbd>X</kbd>Next video</button>
+          </div>
+          <section aria-label="video candidates">
+            <div class="section-head">
+              <span>Candidates, largest first</span>
+              <span>16 / 40 session slots</span>
+            </div>
+            <div class="candidate-panel">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mark</th>
+                    <th>Name</th>
+                    <th>Size</th>
+                    <th>Index</th>
+                    <th>State</th>
+                    <th>Path</th>
+                  </tr>
+                </thead>
+                <tbody data-list="candidates">
+                  <tr class="selected" data-title="Ferry.2024.main.mkv">
+                    <td>[ ]</td>
+                    <td>Ferry.2024.main.mkv</td>
+                    <td>5.7 GB</td>
+                    <td>0</td>
+                    <td>Previewing</td>
+                    <td class="path">Ferry.2024\Ferry.2024.main.mkv</td>
+                  </tr>
+                  <tr class="marked" data-title="Ferry.2024.extra.mkv">
+                    <td>[x]</td>
+                    <td>Ferry.2024.extra.mkv</td>
+                    <td>2.8 GB</td>
+                    <td>1</td>
+                    <td>Marked</td>
+                    <td class="path">Ferry.2024\Extras\Ferry.2024.extra.mkv</td>
+                  </tr>
+                  <tr data-title="sample.mp4">
+                    <td>[ ]</td>
+                    <td>sample.mp4</td>
+                    <td>74 MB</td>
+                    <td>2</td>
+                    <td>Video</td>
+                    <td class="path">Ferry.2024\sample.mp4</td>
+                  </tr>
+                  <tr data-title="behind-the-scenes.mkv">
+                    <td>[ ]</td>
+                    <td>behind-the-scenes.mkv</td>
+                    <td>62 MB</td>
+                    <td>3</td>
+                    <td>Video</td>
+                    <td class="path">Ferry.2024\behind-the-scenes.mkv</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="candidate-actions">
+              <button class="btn primary" type="button" data-action="mark"><kbd>D</kbd>Mark selected</button>
+              <button class="btn" type="button" data-command="prev-torrent"><kbd>A</kbd>Prev torrent</button>
+              <button class="btn" type="button" data-command="next-torrent"><kbd>S</kbd>Next torrent</button>
+              <button class="btn" type="button" data-command="prev-video"><kbd>Z</kbd>Prev video</button>
+              <button class="btn" type="button" data-command="next-video"><kbd>X</kbd>Next video</button>
+              <button class="btn keep" type="button" data-action="keep"><kbd>F</kbd>Keep</button>
+              <button class="btn reject" type="button" data-action="reject"><kbd>R</kbd>Reject</button>
+              <div class="confirm" data-confirm>
+                <strong>Reject deletes torrent files.</strong>
+                <span class="meta">Press R to open this warning, then F to confirm delete-with-files.</span>
+                <button class="btn reject" type="button" data-command="confirm-reject"><kbd>F</kbd>Confirm reject</button>
+              </div>
+            </div>
+          </section>
+        </section>
+      </section>
+      <footer class="statusbar">
+        <span data-status>Connected. Left-hand keys only: Q E R T, A S D F, Z X.</span>
+        <span>qBittorrent dark layout, local only</span>
+      </footer>
+    </main>
+
+    <script>
+      const setStatus = (message) => {
+        document.querySelector("[data-status]").textContent = message;
+      };
+
+      const activate = (selector, item) => {
+        document.querySelectorAll(selector).forEach((row) => row.classList.remove("active", "selected"));
+        if (item.tagName === "TR") {
+          item.classList.add("selected");
+        } else {
+          item.classList.add("active");
+        }
+      };
+
+      document.querySelectorAll(".filter").forEach((row) => {
+        row.addEventListener("click", () => {
+          activate(".filter", row);
+          setStatus("Filter applied.");
+        });
+      });
+
+      document.querySelectorAll(".torrent").forEach((row) => {
+        row.addEventListener("click", () => {
+          activate(".torrent", row);
+          setStatus("Torrent selected. Video stays centered, candidates refresh below.");
+        });
+      });
+
+      document.querySelectorAll("[data-list='candidates'] tr").forEach((row) => {
+        row.addEventListener("click", () => {
+          activate("[data-list='candidates'] tr", row);
+          document.querySelector("[data-current-title]").textContent = row.dataset.title;
+          setStatus("Candidate selected. Press D to mark.");
+        });
+      });
+
+      document.querySelectorAll("[data-action='reject']").forEach((button) => {
+        button.addEventListener("click", () => {
+          document.querySelector("[data-confirm]").classList.toggle("open");
+          setStatus("Reject needs confirmation before qBittorrent deleteFiles=true.");
+        });
+      });
+
+      document.querySelectorAll("[data-action='keep']").forEach((button) => {
+        button.addEventListener("click", () => {
+          setStatus("Keep staged: move marked files first, then remove torrent leftovers.");
+        });
+      });
+
+      document.querySelector("[data-action='mark']").addEventListener("click", () => {
+        const row = document.querySelector("[data-list='candidates'] tr.selected");
+        if (!row) return;
+        row.classList.toggle("marked");
+        row.cells[0].textContent = row.classList.contains("marked") ? "[x]" : "[ ]";
+        row.cells[4].textContent = row.classList.contains("marked") ? "Marked" : "Video";
+        setStatus(row.classList.contains("marked") ? "Candidate marked." : "Candidate unmarked.");
+      });
+
+      document.addEventListener("keydown", (event) => {
+        const key = event.key.toLowerCase();
+        const selected = document.querySelector("[data-list='candidates'] tr.selected");
+        const rows = [...document.querySelectorAll("[data-list='candidates'] tr")];
+        const index = Math.max(0, rows.indexOf(selected));
+        if (key === "d") document.querySelector("[data-action='mark']").click();
+        if (key === "r") document.querySelector("[data-action='reject']").click();
+        if (key === "f") document.querySelector("[data-action='keep']").click();
+        if (key === "z" && rows[index - 1]) rows[index - 1].click();
+        if (key === "x" && rows[index + 1]) rows[index + 1].click();
+        if (key === "q") setStatus("Refresh requested.");
+        if (key === "e") setStatus("External player requested.");
+        if (key === "a") setStatus("Previous torrent selected.");
+        if (key === "s") setStatus("Next torrent selected.");
+        if (key === "t") setStatus("Settings requested.");
+      });
+    </script>
+  </body>
+</html>

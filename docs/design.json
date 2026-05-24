@@ -4,16 +4,17 @@
   "register": "product",
   "colorStrategy": "restrained",
   "scene": "One person sits at a desktop in a dim room, one hand on the keyboard, clearing completed downloads while avoiding accidental file loss.",
+  "northStar": "The Iron Ledger",
   "colors": {
-    "background": "oklch(15.5% 0.008 165)",
-    "foreground": "oklch(93% 0.012 78)",
-    "surface": "oklch(20% 0.011 165)",
-    "surfaceElevated": "oklch(25% 0.014 165)",
-    "primary": "oklch(67% 0.14 150)",
-    "secondary": "oklch(78% 0.115 82)",
-    "info": "oklch(70% 0.095 225)",
-    "destructive": "oklch(62% 0.17 28)",
-    "border": "oklch(34% 0.018 165)"
+    "background": "oklch(15.8% 0.01 248)",
+    "foreground": "oklch(94% 0.011 86)",
+    "surface": "oklch(21.2% 0.013 246)",
+    "surfaceElevated": "oklch(26.5% 0.016 246)",
+    "primary": "oklch(69% 0.13 154)",
+    "secondary": "oklch(75% 0.12 68)",
+    "info": "oklch(72% 0.09 218)",
+    "destructive": "oklch(62% 0.18 31)",
+    "border": "oklch(35% 0.019 246)"
   },
   "typography": {
     "ui": "Inter, ui-sans-serif, system-ui, sans-serif",
@@ -22,8 +23,9 @@
   "rules": [
     "Green means Keep or success.",
     "Red means Reject, delete, or failed destructive operation.",
-    "Amber means focus, capacity, or attention before action.",
-    "Preview and candidate files dominate. Decorative color does not."
+    "Copper means focus, capacity, or attention before action.",
+    "Preview and candidate files dominate. Decorative color does not.",
+    "The interface must feel like local tooling, not a cloud product."
   ]
 }
 

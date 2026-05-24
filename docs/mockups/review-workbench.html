@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Review Queue Mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --background: oklch(15.8% 0.01 248);
+        --foreground: oklch(94% 0.011 86);
+        --surface: oklch(21.2% 0.013 246);
+        --surface-elevated: oklch(26.5% 0.016 246);
+        --primary: oklch(69% 0.13 154);
+        --primary-foreground: oklch(14% 0.011 154);
+        --secondary: oklch(75% 0.12 68);
+        --secondary-soft: oklch(25% 0.035 68);
+        --info: oklch(72% 0.09 218);
+        --destructive: oklch(62% 0.18 31);
+        --muted: oklch(24% 0.014 246);
+        --muted-foreground: oklch(72% 0.026 82);
+        --border: oklch(35% 0.019 246);
+        --shadow: 0 18px 50px oklch(8% 0.008 248 / 48%);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--background);
+        color: var(--foreground);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          linear-gradient(180deg, oklch(20% 0.014 246), var(--background) 260px),
+          var(--background);
+      }
+
+      main {
+        min-height: 100vh;
+        padding: 18px;
+      }
+
+      header,
+      .workbench {
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 14px;
+      }
+
+      h1,
+      h2,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        line-height: 1.1;
+      }
+
+      h2 {
+        font-size: 1.125rem;
+      }
+
+      .eyebrow {
+        margin-bottom: 5px;
+        color: var(--muted-foreground);
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .meta,
+      .row-meta,
+      .stage-path,
+      .action-status {
+        color: var(--muted-foreground);
+        font-size: 0.75rem;
+      }
+
+      .meta,
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .pill {
+        min-height: 28px;
+        border: 1px solid var(--border);
+        border-radius: 9999px;
+        padding: 0 9px;
+        background: var(--muted);
+      }
+
+      .pill.ok {
+        color: var(--primary);
+        border-color: oklch(49% 0.078 154);
+      }
+
+      .workbench {
+        display: grid;
+        grid-template-columns: minmax(220px, 300px) minmax(420px, 1fr) minmax(280px, 360px);
+        gap: 12px;
+      }
+
+      .panel,
+      .stage,
+      .actions {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }
+
+      .panel {
+        padding: 12px;
+      }
+
+      .heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .row {
+        display: grid;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px;
+        background: var(--muted);
+      }
+
+      .row.active {
+        border-color: var(--secondary);
+        box-shadow: 0 0 0 1px oklch(75% 0.12 68 / 35%);
+      }
+
+      .row.marked {
+        border-color: oklch(50% 0.078 154);
+        background: oklch(24% 0.024 154);
+      }
+
+      .row-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 700;
+      }
+
+      .stage-column {
+        display: grid;
+        grid-template-rows: minmax(430px, 1fr) auto;
+        gap: 12px;
+      }
+
+      .stage {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        overflow: hidden;
+      }
+
+      .stage-top,
+      .stage-path {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+      }
+
+      .preview {
+        display: grid;
+        place-items: center;
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+        background:
+          radial-gradient(circle at 50% 0, oklch(24% 0.019 246), transparent 42%),
+          oklch(10% 0.007 248);
+      }
+
+      .preview-box {
+        display: grid;
+        place-items: center;
+        width: min(72%, 720px);
+        aspect-ratio: 16 / 9;
+        border: 1px solid oklch(32% 0.018 246);
+        border-radius: 8px;
+        background: linear-gradient(145deg, oklch(19% 0.012 246), oklch(13% 0.008 248));
+        color: var(--muted-foreground);
+      }
+
+      .actions {
+        display: grid;
+        grid-template-columns: auto minmax(180px, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0 12px;
+        color: var(--foreground);
+        background: var(--muted);
+        font-weight: 700;
+      }
+
+      .button.keep {
+        border-color: transparent;
+        color: var(--primary-foreground);
+        background: var(--primary);
+      }
+
+      .button.reject {
+        border-color: transparent;
+        background: var(--destructive);
+      }
+
+      .button.warn {
+        border-color: oklch(58% 0.1 68);
+        color: var(--secondary);
+        background: var(--secondary-soft);
+      }
+
+      .meter {
+        height: 8px;
+        overflow: hidden;
+        border-radius: 9999px;
+        background: oklch(17% 0.011 246);
+      }
+
+      .meter span {
+        display: block;
+        width: 40%;
+        height: 100%;
+        background: var(--secondary);
+      }
+
+      .split {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      @media (max-width: 900px) {
+        main {
+          padding: 10px;
+        }
+
+        header,
+        .workbench,
+        .actions {
+          grid-template-columns: 1fr;
+        }
+
+        header {
+          display: grid;
+        }
+
+        .stage-column {
+          grid-row: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">Local qBittorrent</p>
+          <h1>Review Queue</h1>
+        </div>
+        <div class="meta">
+          <span class="pill ok">Connected</span>
+          <span class="pill">8 ready</span>
+          <span class="pill">24 folder slots</span>
+          <span class="pill">Refresh</span>
+          <span class="pill">Settings</span>
+        </div>
+      </header>
+
+      <section class="workbench" aria-label="Iron Ledger review queue mockup">
+        <aside class="panel">
+          <div class="heading">
+            <div>
+              <p class="eyebrow">Completed</p>
+              <h2>Queue</h2>
+            </div>
+            <span class="pill">8</span>
+          </div>
+          <div class="list">
+            <div class="row active">
+              <span class="row-title">Ferry.2024.2160p.WEB-DL</span>
+              <span class="row-meta">4 videos · 9.4 GB</span>
+            </div>
+            <div class="row">
+              <span class="row-title">Archive Set S02</span>
+              <span class="row-meta">2 videos · 5.1 GB</span>
+            </div>
+            <div class="row">
+              <span class="row-title">Untitled Rip Batch</span>
+              <span class="row-meta">1 video · 1.7 GB</span>
+            </div>
+          </div>
+        </aside>
+
+        <section class="stage-column">
+          <section class="stage">
+            <div class="stage-top">
+              <strong>Ferry.2024.main.mkv</strong>
+              <span class="pill">MKV</span>
+            </div>
+            <div class="preview">
+              <div class="preview-box">Preview stage</div>
+            </div>
+            <div class="stage-path">
+              <span>8f6c21ab</span>
+              <span>D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</span>
+            </div>
+          </section>
+
+          <section class="actions">
+            <div class="meta">
+              <span class="button">Prev</span>
+              <span class="button">Video -</span>
+              <span class="button">Video +</span>
+              <span class="button">Next</span>
+            </div>
+            <div class="action-status">Ready. 1 marked.</div>
+            <div class="meta">
+              <span class="button">Open</span>
+              <span class="button keep">Keep</span>
+              <span class="button reject">Reject</span>
+            </div>
+          </section>
+        </section>
+
+        <aside class="panel">
+          <div class="heading">
+            <div>
+              <p class="eyebrow">Video candidates</p>
+              <h2>4 files</h2>
+            </div>
+            <span class="pill">Folder</span>
+          </div>
+          <div class="row" style="margin-bottom: 12px">
+            <div class="split">
+              <strong>16</strong>
+              <span class="row-meta">/ 40</span>
+            </div>
+            <div class="meter"><span></span></div>
+          </div>
+          <div class="list">
+            <div class="row active">
+              <span class="row-title">Ferry.2024.main.mkv</span>
+              <span class="row-meta">5.7 GB · index 0</span>
+            </div>
+            <div class="row marked">
+              <span class="row-title">Ferry.2024.extra.mkv</span>
+              <span class="row-meta">2.8 GB · marked</span>
+            </div>
+            <div class="row">
+              <span class="row-title">sample.mp4</span>
+              <span class="row-meta">74 MB · index 2</span>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </body>
+</html>

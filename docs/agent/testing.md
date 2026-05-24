@@ -74,10 +74,10 @@ For these changes, implement directly and verify with the cheapest appropriate c
 - Unit-test cleanup-failed torrent moves to attention work and selects next torrent.
 - Unit-test Empty Queue State when no torrents remain after Keep/Reject.
 - Unit-test Keep proceeds without confirmation when all candidates are marked.
-- Unit-test Keep confirmation when multiple candidates exist and at least one is unmarked: first `Q` arms, second `Q` confirms, `Esc` cancels.
+- Unit-test Keep confirmation when multiple candidates exist and at least one is unmarked: first `F` arms, second `F` confirms, `Esc` cancels.
 - Unit-test Armed Keep timeout, torrent-change cancellation, and marked-candidate-change cancellation.
 - Integration-test Reject confirmation required and `deleteFiles=true`.
-- Unit-test Reject keyboard flow: first `E` arms, second `E` confirms, `Esc` cancels.
+- Unit-test Reject keyboard flow: first `R` arms, second `R` confirms, `Esc` cancels.
 - Unit-test Armed Reject timeout and torrent-change cancellation.
 
 ## Frontend Test Priorities
@@ -100,7 +100,7 @@ For these changes, implement directly and verify with the cheapest appropriate c
 - Candidate selection updates preview route.
 - Marked candidates control which files Keep moves.
 - Candidate checkbox toggles marked state independently from active preview focus.
-- `W`/`S` move active candidate, `A`/`D` move previous/next torrent, `Space` toggles marked state, `Q` keeps, `E` rejects/arms reject, and `Enter` opens External Open.
+- Visible left-hand keys are `Q E R T`, `A S D F`, and `Z X`: `Q` refreshes, `E` opens External Open, `R` rejects/arms Reject, `T` opens settings, `A`/`S` move previous/next torrent, `Z`/`X` move previous/next candidate, `D` toggles marking, and `F` keeps/arms Keep. `Space` may mirror `D`.
 - Arrow keys mirror navigation as secondary shortcuts.
 - Review shortcuts do not fire while typing in text inputs, path fields, or editable settings controls; `Esc` still cancels armed states or leaves typing context.
 - Only the largest video candidate is marked by default when a torrent opens.

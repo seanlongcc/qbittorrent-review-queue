@@ -28,18 +28,63 @@ export type ReviewTorrent = {
   progress: number;
   totalSizeBytes: number;
   savePath: string;
-  candidates: VideoCandidate[];
-  junkFiles: JunkFile[];
+  contentPath?: string;
+  candidates?: VideoCandidate[];
+  junkFiles?: JunkFile[];
   attentionReason?: AttentionReason;
   attentionDetail?: string;
+  movedFiles?: string[];
 };
 
 export type LocalSettings = {
   qbtBaseUrl: string;
   qbtUsername: string;
   passwordConfigured: boolean;
+  windowsDownloadRoot: string;
+  wslDownloadRoot: string;
   sessionFolder: string;
   sessionFolderLimit: number;
   folderCount: number;
   connected: boolean;
+};
+
+export type QueueResponse = {
+  torrents: ReviewTorrent[];
+  attentionTorrents: ReviewTorrent[];
+  settings: LocalSettings;
+};
+
+export type KeepPayload = {
+  fileIndexes: number[];
+  confirmed: boolean;
+};
+
+export type RejectPayload = {
+  confirmed: boolean;
+};
+
+export type CleanupRetryPayload = {
+  confirmed: boolean;
+};
+
+export type SettingsUpdate = Partial<
+  Pick<
+    LocalSettings,
+    | "qbtBaseUrl"
+    | "qbtUsername"
+    | "windowsDownloadRoot"
+    | "wslDownloadRoot"
+    | "sessionFolder"
+    | "sessionFolderLimit"
+  >
+> & { qbtPassword?: string };
+
+export type FolderPickPayload = {
+  title?: string;
+  initialPath?: string;
+};
+
+export type FolderPickResponse = {
+  path: string | null;
+  cancelled: boolean;
 };

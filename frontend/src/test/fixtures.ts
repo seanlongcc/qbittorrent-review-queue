@@ -1,16 +1,18 @@
 import type { LocalSettings, ReviewTorrent } from "../domain/types";
 
-export const mockSettings: LocalSettings = {
+export const sampleSettings: LocalSettings = {
   qbtBaseUrl: "http://localhost:8080",
   qbtUsername: "admin",
   passwordConfigured: true,
+  windowsDownloadRoot: "C:\\Downloads",
+  wslDownloadRoot: "/mnt/c/Downloads",
   sessionFolder: "/mnt/c/Users/seanl/Videos/Review/Session-12",
   sessionFolderLimit: 40,
   folderCount: 34,
   connected: false,
 };
 
-export const mockTorrents: ReviewTorrent[] = [
+export const sampleTorrents: ReviewTorrent[] = [
   {
     hash: "a41f7e9b0d8c2a7a5190cc3d72af0115e4c92a31",
     name: "Workshop footage - camera A",

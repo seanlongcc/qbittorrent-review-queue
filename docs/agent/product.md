@@ -45,7 +45,7 @@ Build a local Python web app with FastAPI backend and Vite React frontend. It co
 - Never accept raw local file paths from browser requests.
 - Mark one or more video candidates for Keep.
 - Candidate rows use checkbox-style marking and separate active preview focus.
-- Use a left-hand keyboard model as primary: `W`/`S` move active candidate, `A`/`D` move previous/next torrent, `Space` toggles marking, `Q` keeps, `E` rejects/arms reject, and `Enter` opens External Open for the active candidate.
+- Use a left-hand keyboard model as primary with visible keys `Q E R T`, `A S D F`, and `Z X`: `Q` refreshes, `E` opens External Open, `R` rejects/arms Reject, `T` opens settings, `A`/`S` move previous/next torrent, `Z`/`X` move previous/next candidate, `D` toggles marking, and `F` keeps/arms Keep. `Space` may mirror `D` as a secondary mark shortcut.
 - Arrow keys may mirror navigation as secondary shortcuts.
 - Disable review shortcuts while focus is inside text inputs, path fields, or editable settings controls; allow `Esc` to cancel armed states or leave typing context.
 - Default-mark only the largest video candidate when a torrent opens.
@@ -68,10 +68,10 @@ Build a local Python web app with FastAPI backend and Vite React frontend. It co
 - Show Empty Queue State when no completed torrents remain.
 - Unmarked video candidates are Torrent Leftovers and are deleted during Keep cleanup.
 - Keep does not require confirmation when all video candidates are marked.
-- Keep confirmation is required when multiple video candidates exist and at least one is unmarked: `Q` arms, second `Q` confirms, `Esc` cancels, and clicking Keep mirrors the same two-click behavior.
+- Keep confirmation is required when multiple video candidates exist and at least one is unmarked: `F` arms, second `F` confirms, `Esc` cancels, and clicking Keep mirrors the same two-click behavior.
 - Armed Keep times out after 8 seconds and cancels when the current torrent or marked candidates change.
 - Reject a torrent only after confirmation, using qBittorrent delete with `deleteFiles=true`.
-- Reject confirmation is a two-step armed flow: `E` arms, second `E` confirms, `Esc` cancels, and clicking Reject mirrors the same two-click behavior.
+- Reject confirmation is a two-step armed flow: `R` arms, second `R` confirms, `Esc` cancels, and clicking Reject mirrors the same two-click behavior.
 - Armed Reject times out after 8 seconds and cancels when the current torrent changes.
 
 ## Assumptions

@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:," />
+    <title>Power User Review Queue Mockup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(13% 0.008 230);
+        --ink: oklch(91% 0.012 92);
+        --muted: oklch(66% 0.025 92);
+        --faint: oklch(48% 0.018 230);
+        --panel: oklch(18% 0.01 230);
+        --panel-2: oklch(22% 0.012 230);
+        --line: oklch(32% 0.018 230);
+        --line-hot: oklch(73% 0.11 82);
+        --cmd: oklch(73% 0.11 82);
+        --keep: oklch(68% 0.14 154);
+        --reject: oklch(61% 0.18 31);
+        --info: oklch(70% 0.095 220);
+        --violet: oklch(68% 0.1 292);
+        font-family:
+          "IBM Plex Sans", Inter, ui-sans-serif, system-ui, -apple-system,
+          BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background:
+          linear-gradient(180deg, oklch(16% 0.01 230), var(--bg) 220px),
+          var(--bg);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .mono,
+      kbd,
+      .path,
+      .metric,
+      table {
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .app {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+      }
+
+      .command {
+        display: grid;
+        grid-template-columns: auto minmax(160px, 1fr) auto;
+        gap: 10px;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        padding: 8px 10px;
+        background: var(--panel);
+      }
+
+      .brand {
+        font-size: 0.86rem;
+        font-weight: 800;
+      }
+
+      .cmdline {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 6px 9px;
+        color: var(--muted);
+        background: oklch(11% 0.007 230);
+      }
+
+      .cmdline input {
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        outline: 0;
+        color: var(--ink);
+        background: transparent;
+      }
+
+      .stats,
+      .keys,
+      .actions,
+      .split {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .stats {
+        flex-wrap: wrap;
+        justify-content: end;
+      }
+
+      .metric,
+      kbd {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 0 7px;
+        color: var(--muted);
+        background: oklch(15% 0.008 230);
+        font-size: 0.72rem;
+      }
+
+      .metric.hot {
+        color: var(--cmd);
+        border-color: oklch(54% 0.075 82);
+      }
+
+      .grid {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 280px minmax(500px, 1fr) 420px;
+        grid-template-rows: minmax(0, 1fr);
+      }
+
+      .rail,
+      .stage,
+      .matrix {
+        min-width: 0;
+        min-height: 0;
+        border-right: 1px solid var(--line);
+      }
+
+      .matrix {
+        border-right: 0;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 34px;
+        border-bottom: 1px solid var(--line);
+        padding: 0 10px;
+        color: var(--muted);
+        background: var(--panel);
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .queue {
+        height: calc(100vh - 103px);
+        overflow: auto;
+      }
+
+      .qrow {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 26px 1fr auto;
+        gap: 7px;
+        align-items: center;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 7px 8px;
+        color: var(--ink);
+        background: transparent;
+        text-align: left;
+      }
+
+      .qrow:hover,
+      .qrow:focus-visible,
+      .qrow.active {
+        outline: none;
+        background: var(--panel-2);
+      }
+
+      .qrow.active {
+        box-shadow: inset 0 0 0 1px var(--line-hot);
+      }
+
+      .idx {
+        color: var(--cmd);
+        font-size: 0.75rem;
+        font-weight: 800;
+      }
+
+      .name,
+      .path {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .name {
+        font-size: 0.82rem;
+        font-weight: 720;
+      }
+
+      .meta,
+      .path,
+      .hint {
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .stage {
+        display: grid;
+        grid-template-rows: auto minmax(260px, 1fr) auto;
+        background: oklch(10% 0.006 230);
+      }
+
+      .stage-top,
+      .stage-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-bottom: 1px solid var(--line);
+        padding: 8px 10px;
+        background: var(--panel);
+      }
+
+      .stage-top > div {
+        min-width: 0;
+      }
+
+      .stage-foot {
+        border-top: 1px solid var(--line);
+        border-bottom: 0;
+      }
+
+      .preview {
+        display: grid;
+        place-items: center;
+        min-height: 0;
+        background:
+          linear-gradient(90deg, transparent 0 49.6%, oklch(42% 0.02 230 / 0.36) 49.6% 50.4%, transparent 50.4%),
+          linear-gradient(180deg, oklch(16% 0.008 230), oklch(9% 0.006 230));
+      }
+
+      .frame {
+        display: grid;
+        place-items: center;
+        width: min(82%, 900px);
+        aspect-ratio: 16 / 9;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        background:
+          linear-gradient(135deg, oklch(23% 0.012 230), oklch(13% 0.008 230)),
+          oklch(13% 0.008 230);
+        color: var(--muted);
+      }
+
+      .matrix {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        background: var(--panel);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.73rem;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 6px 7px;
+        text-align: left;
+        white-space: nowrap;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        color: var(--muted);
+        background: oklch(15% 0.009 230);
+        z-index: 1;
+      }
+
+      tbody tr {
+        cursor: pointer;
+      }
+
+      tbody tr:hover,
+      tbody tr.active {
+        background: var(--panel-2);
+      }
+
+      tbody tr.active {
+        box-shadow: inset 0 0 0 1px var(--line-hot);
+      }
+
+      tbody tr.marked td:first-child {
+        color: var(--keep);
+      }
+
+      .table-wrap {
+        min-height: 0;
+        overflow: auto;
+      }
+
+      .actions {
+        flex-wrap: wrap;
+        border-top: 1px solid var(--line);
+        padding: 8px;
+      }
+
+      .btn {
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 0 9px;
+        color: var(--ink);
+        background: oklch(15% 0.008 230);
+        font-weight: 750;
+      }
+
+      .btn:hover,
+      .btn:focus-visible {
+        outline: 2px solid var(--cmd);
+        outline-offset: 1px;
+      }
+
+      .btn.keep {
+        color: oklch(11% 0.008 154);
+        border-color: var(--keep);
+        background: var(--keep);
+      }
+
+      .btn.reject {
+        color: oklch(96% 0.01 31);
+        border-color: var(--reject);
+        background: var(--reject);
+      }
+
+      .confirm {
+        display: none;
+        grid-column: 1 / -1;
+        width: 100%;
+        border: 1px solid oklch(50% 0.14 31);
+        border-radius: 5px;
+        padding: 8px;
+        background: oklch(23% 0.045 31);
+      }
+
+      .confirm.open {
+        display: grid;
+        gap: 7px;
+      }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid var(--line);
+        padding: 6px 10px;
+        background: var(--panel);
+      }
+
+      @media (max-width: 1020px) {
+        .command {
+          grid-template-columns: 1fr;
+        }
+
+        .stats {
+          justify-content: start;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .stage {
+          grid-row: 1;
+          min-height: 58vh;
+        }
+
+        .stage-top {
+          align-items: start;
+        }
+
+        .keys {
+          flex-wrap: wrap;
+          justify-content: end;
+        }
+
+        .stage-foot {
+          display: grid;
+          align-items: start;
+        }
+
+        .rail,
+        .matrix {
+          border-top: 1px solid var(--line);
+          border-right: 0;
+        }
+
+        .queue {
+          height: auto;
+          max-height: 260px;
+        }
+
+        .frame {
+          width: min(93%, 680px);
+        }
+
+        .footer {
+          display: grid;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .keys {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="command">
+        <div class="brand">qbrq power deck</div>
+        <label class="cmdline">
+          <span class="mono">:</span>
+          <input value="filter completed has:video sort:size desc" aria-label="command input" />
+        </label>
+        <div class="stats">
+          <span class="metric hot">queue 08</span>
+          <span class="metric">marked 02</span>
+          <span class="metric">slots 16/40</span>
+          <span class="metric">api ok</span>
+        </div>
+      </header>
+
+      <section class="grid" aria-label="dense keyboard-first mockup">
+        <aside class="rail">
+          <div class="section-head"><span>Queue</span><span>j/k select</span></div>
+          <div class="queue" data-list="queue">
+            <button class="qrow active" type="button">
+              <span class="idx">01</span>
+              <span>
+                <span class="name">Ferry.2024.2160p.WEB-DL</span>
+                <span class="meta">4 files, 9.4 GB</span>
+              </span>
+              <span class="metric">ok</span>
+            </button>
+            <button class="qrow" type="button">
+              <span class="idx">02</span>
+              <span>
+                <span class="name">Archive Set S02</span>
+                <span class="meta">2 files, 5.1 GB</span>
+              </span>
+              <span class="metric">ok</span>
+            </button>
+            <button class="qrow" type="button">
+              <span class="idx">03</span>
+              <span>
+                <span class="name">Concert.Rough.Cut</span>
+                <span class="meta">3 files, 4.8 GB</span>
+              </span>
+              <span class="metric hot">map</span>
+            </button>
+            <button class="qrow" type="button">
+              <span class="idx">04</span>
+              <span>
+                <span class="name">Old.Batches.Mixed</span>
+                <span class="meta">7 files, 3.1 GB</span>
+              </span>
+              <span class="metric">ok</span>
+            </button>
+          </div>
+        </aside>
+
+        <section class="stage">
+          <div class="stage-top">
+            <div>
+              <strong data-current-title>Ferry.2024.main.mkv</strong>
+              <p class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</p>
+            </div>
+            <div class="keys">
+              <kbd>[</kbd><kbd>]</kbd><kbd>space</kbd><kbd>x</kbd>
+            </div>
+          </div>
+          <div class="preview">
+            <div class="frame">Preview, fit width, 16:9 locked</div>
+          </div>
+          <div class="stage-foot">
+            <span class="hint" data-status>Ready. Press m to mark, K to keep, R to reject.</span>
+            <span class="metric hot">focus video</span>
+          </div>
+        </section>
+
+        <aside class="matrix">
+          <div class="section-head"><span>Candidates</span><span>largest first</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>mark</th>
+                  <th>file</th>
+                  <th>gb</th>
+                  <th>idx</th>
+                  <th>state</th>
+                </tr>
+              </thead>
+              <tbody data-list="files">
+                <tr class="active" data-title="Ferry.2024.main.mkv">
+                  <td>[ ]</td>
+                  <td>Ferry.2024.main.mkv</td>
+                  <td>5.7</td>
+                  <td>0</td>
+                  <td>preview</td>
+                </tr>
+                <tr class="marked" data-title="Ferry.2024.extra.mkv">
+                  <td>[x]</td>
+                  <td>Ferry.2024.extra.mkv</td>
+                  <td>2.8</td>
+                  <td>1</td>
+                  <td>marked</td>
+                </tr>
+                <tr data-title="sample.mp4">
+                  <td>[ ]</td>
+                  <td>sample.mp4</td>
+                  <td>0.07</td>
+                  <td>2</td>
+                  <td>video</td>
+                </tr>
+                <tr data-title="behind-the-scenes.mkv">
+                  <td>[ ]</td>
+                  <td>behind-the-scenes.mkv</td>
+                  <td>0.06</td>
+                  <td>3</td>
+                  <td>video</td>
+                </tr>
+                <tr>
+                  <td></td>
+                  <td>12 junk files collapsed</td>
+                  <td>0.04</td>
+                  <td>4+</td>
+                  <td>junk</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="actions">
+            <button class="btn" type="button">Open</button>
+            <button class="btn" type="button">Prev</button>
+            <button class="btn" type="button">Next</button>
+            <button class="btn keep" type="button" data-action="keep">Keep</button>
+            <button class="btn reject" type="button" data-action="reject">Reject</button>
+            <div class="confirm" data-confirm>
+              <strong>Reject deletes torrent files.</strong>
+              <span class="hint">Confirm only when no candidate should be kept.</span>
+              <button class="btn reject" type="button">Confirm reject</button>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <footer class="footer">
+        <span class="hint">Shortcuts: j/k queue, [/ ] video, m mark, K keep, R reject, o open external.</span>
+        <span class="hint">Move first, delete leftovers only after successful keep.</span>
+      </footer>
+    </main>
+
+    <script>
+      const active = (selector, item) => {
+        document.querySelectorAll(selector).forEach((row) => row.classList.remove("active"));
+        item.classList.add("active");
+      };
+
+      document.querySelectorAll("[data-list='queue'] .qrow").forEach((row) => {
+        row.addEventListener("click", () => {
+          active("[data-list='queue'] .qrow", row);
+          document.querySelector("[data-status]").textContent = "Queue row selected.";
+        });
+      });
+
+      document.querySelectorAll("[data-list='files'] tr[data-title]").forEach((row) => {
+        row.addEventListener("click", () => {
+          active("[data-list='files'] tr", row);
+          row.classList.toggle("marked");
+          row.cells[0].textContent = row.classList.contains("marked") ? "[x]" : "[ ]";
+          row.cells[4].textContent = row.classList.contains("marked") ? "marked" : "video";
+          document.querySelector("[data-current-title]").textContent = row.dataset.title;
+          document.querySelector("[data-status]").textContent = row.classList.contains("marked")
+            ? "Marked for keep."
+            : "Unmarked.";
+        });
+      });
+
+      document.querySelector("[data-action='reject']").addEventListener("click", () => {
+        document.querySelector("[data-confirm]").classList.toggle("open");
+      });
+
+      document.querySelector("[data-action='keep']").addEventListener("click", () => {
+        document.querySelector("[data-status]").textContent = "Keep staged. Two marked candidates will move first.";
+      });
+    </script>
+  </body>
+</html>
