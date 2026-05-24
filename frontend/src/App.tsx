@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import {
   cleanupRetryTorrent,
   getQueue,
@@ -14,7 +14,7 @@ import {
   QueueSidebar,
   SettingsPanel,
   TitleBar,
-  Toolbar,
+  type QueueSort,
 } from "./review/Workbench";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { commandFromKey, type ReviewCommand } from "./review/keyboard";
@@ -34,7 +34,12 @@ import {
 
 export function App() {
   const [state, dispatch] = useReducer(reviewReducer, undefined, () => createInitialState());
+  const [queueSort, setQueueSort] = useState<QueueSort>({ field: "added", direction: "desc" });
   const reviewableTorrents = getReviewableTorrents(state);
+  const sortedReviewableTorrents = useMemo(
+    () => sortReviewableTorrents(reviewableTorrents, queueSort),
+    [queueSort, reviewableTorrents],
+  );
   const attentionTorrents = getAttentionTorrents(state);
   const activeTorrent = getActiveTorrent(state);
   const activeCandidate = getActiveCandidate(state);
@@ -70,7 +75,7 @@ export function App() {
         return;
       }
       void refreshQueue();
-    }, 15_000);
+    }, 60_000);
     return () => window.clearInterval(interval);
   }, [refreshQueue, state.actionBusy, state.settings.connected, state.settingsOpen]);
 
@@ -188,8 +193,15 @@ export function App() {
 
   const handleCommand = useCallback(
     (command: ReviewCommand) => {
-      if (command === "refreshQueue") {
-        void refreshQueue();
+      if (command === "previousTorrent" || command === "nextTorrent") {
+        const hash = nextSortedTorrentHash(
+          sortedReviewableTorrents,
+          state.activeTorrentHash,
+          command === "nextTorrent" ? 1 : -1,
+        );
+        if (hash) {
+          dispatch({ type: "selectTorrent", hash });
+        }
         return;
       }
       if (command === "keep") {
@@ -206,7 +218,7 @@ export function App() {
       }
       dispatch({ type: command });
     },
-    [refreshQueue, runKeep, runOpenExternal, runReject],
+    [runKeep, runOpenExternal, runReject, sortedReviewableTorrents, state.activeTorrentHash],
   );
 
   useEffect(() => {
@@ -235,26 +247,33 @@ export function App() {
   return (
     <TooltipProvider>
       <main className="qbt-shell">
-        <TitleBar settings={state.settings} />
-        <Toolbar
+        <TitleBar
+          settings={state.settings}
           busy={state.loadingQueue || state.actionBusy}
-          armedAction={state.armedAction}
-          canOpen={Boolean(activeCandidate) && !activeMissing}
-          canReview={Boolean(activeTorrent) && !activeMissing}
-          onCommand={handleCommand}
+          onSettings={() => dispatch({ type: "toggleSettings" })}
         />
         <section className="qbt-main" aria-label="Review workbench">
           <QueueSidebar
-            torrents={reviewableTorrents}
+            torrents={sortedReviewableTorrents}
             attentionTorrents={attentionTorrents}
             activeHash={state.activeTorrentHash}
             settings={state.settings}
             busy={state.actionBusy}
+            loading={state.loadingQueue}
+            sort={queueSort}
             onSelect={(hash) => dispatch({ type: "selectTorrent", hash })}
             onCleanupRetry={(hash) => void runCleanupRetry(hash)}
+            onRefresh={() => void refreshQueue()}
+            onSortChange={setQueueSort}
           />
           <section className="qbt-center">
-            <MediaStage torrent={activeTorrent} candidate={activeCandidate} loading={state.loadingDetail} />
+            <MediaStage
+              torrent={activeTorrent}
+              candidate={activeCandidate}
+              loading={state.loadingDetail}
+              busy={state.actionBusy}
+              onOpenExternal={() => handleCommand("openExternal")}
+            />
             <CandidateTabs onCommand={handleCommand} />
             <CandidateTable
               torrent={activeTorrent}
@@ -282,10 +301,6 @@ export function App() {
             }}
           />
         ) : null}
-        <footer className="qbt-statusbar">
-          <span>{state.notice}</span>
-          <span>Left-hand keys only: Q E R T, A S D F, Z X.</span>
-        </footer>
       </main>
     </TooltipProvider>
   );
@@ -293,4 +308,37 @@ export function App() {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
+}
+
+function sortReviewableTorrents(torrents: ReturnType<typeof getReviewableTorrents>, sort: QueueSort) {
+  const direction = sort.direction === "asc" ? 1 : -1;
+  return torrents
+    .map((torrent, index) => ({ torrent, index }))
+    .sort((left, right) => {
+      if (sort.field === "name") {
+        const compared = left.torrent.name.localeCompare(right.torrent.name, undefined, { sensitivity: "base" });
+        return compared === 0 ? left.index - right.index : compared * direction;
+      }
+      if (sort.field === "size") {
+        const compared = left.torrent.totalSizeBytes - right.torrent.totalSizeBytes;
+        return compared === 0 ? left.index - right.index : compared * direction;
+      }
+      return (left.index - right.index) * direction;
+    })
+    .map(({ torrent }) => torrent);
+}
+
+function nextSortedTorrentHash(
+  torrents: ReturnType<typeof getReviewableTorrents>,
+  activeHash: string | null,
+  offset: number,
+): string | null {
+  if (!torrents.length) {
+    return null;
+  }
+  const currentIndex = torrents.findIndex((torrent) => torrent.hash === activeHash);
+  const nextIndex = currentIndex === -1
+    ? (offset > 0 ? 0 : torrents.length - 1)
+    : (currentIndex + offset + torrents.length) % torrents.length;
+  return torrents[nextIndex].hash;
 }

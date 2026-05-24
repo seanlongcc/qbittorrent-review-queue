@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Queue control redesign mockups</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: oklch(15.8% 0.01 248);
+        --surface: oklch(21.2% 0.013 246);
+        --surface-2: oklch(26.5% 0.016 246);
+        --surface-3: oklch(30% 0.017 246);
+        --text: oklch(94% 0.011 86);
+        --muted: oklch(72% 0.026 82);
+        --faint: oklch(57% 0.02 82);
+        --border: oklch(35% 0.019 246);
+        --border-strong: oklch(45% 0.023 246);
+        --keep: oklch(69% 0.13 154);
+        --keep-soft: oklch(25% 0.05 154);
+        --danger: oklch(62% 0.18 31);
+        --danger-soft: oklch(26% 0.06 31);
+        --api-off: oklch(62% 0.18 31);
+        --focus: oklch(75% 0.12 68);
+        --info: oklch(72% 0.09 218);
+        --shadow: 0 18px 54px oklch(8% 0.01 248 / 0.42);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        background:
+          radial-gradient(circle at top left, oklch(22% 0.018 246), transparent 34rem),
+          var(--bg);
+        color: var(--text);
+        margin: 0;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+
+      button,
+      select {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .page {
+        display: grid;
+        gap: 26px;
+        margin: 0 auto;
+        max-width: 1540px;
+        min-width: 0;
+        overflow: hidden;
+        padding: 26px;
+        width: 100%;
+      }
+
+      .page > * {
+        min-width: 0;
+      }
+
+      .brief {
+        align-items: end;
+        display: flex;
+        gap: 18px;
+        justify-content: space-between;
+      }
+
+      .brief h1 {
+        font-size: 1.25rem;
+        letter-spacing: 0;
+        line-height: 1.15;
+        margin: 0 0 8px;
+      }
+
+      .brief p {
+        color: var(--muted);
+        line-height: 1.45;
+        margin: 0;
+        max-width: 72ch;
+        overflow-wrap: break-word;
+      }
+
+      .brief .rule {
+        color: var(--faint);
+        font-size: 0.78rem;
+        white-space: nowrap;
+      }
+
+      .mockup-set {
+        display: grid;
+        gap: 18px;
+      }
+
+      .mockup-label {
+        align-items: center;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+      }
+
+      .mockup-label h2 {
+        font-size: 0.95rem;
+        letter-spacing: 0;
+        margin: 0;
+      }
+
+      .mockup-label p {
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin: 0;
+        overflow-wrap: break-word;
+      }
+
+      .frame {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+      }
+
+      .titlebar {
+        align-items: center;
+        background: oklch(18.8% 0.012 246);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 14px;
+        justify-content: space-between;
+        min-height: 48px;
+        padding: 9px 12px 9px 16px;
+      }
+
+      .brand {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand-mark {
+        background:
+          linear-gradient(145deg, transparent 0 44%, oklch(18% 0.02 154) 45% 100%),
+          var(--keep);
+        border-radius: 50%;
+        box-shadow: inset 0 -2px 8px oklch(16% 0.04 154 / 0.55);
+        height: 18px;
+        width: 18px;
+      }
+
+      .brand strong,
+      .file-title,
+      .torrent-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .title-meta {
+        color: var(--muted);
+        font-size: 0.78rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .title-actions {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+      }
+
+      .status-pill {
+        align-items: center;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--muted);
+        display: inline-flex;
+        font-size: 0.75rem;
+        gap: 7px;
+        height: 30px;
+        padding: 0 10px;
+        white-space: nowrap;
+      }
+
+      .status-dot {
+        background: var(--keep);
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px oklch(69% 0.13 154 / 0.12);
+        height: 7px;
+        width: 7px;
+      }
+
+      .status-dot.off {
+        background: var(--api-off);
+        box-shadow: 0 0 0 3px oklch(62% 0.18 31 / 0.12);
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 292px minmax(420px, 1fr);
+        min-height: 860px;
+        min-width: 0;
+      }
+
+      .queue-rail,
+      .decision-rail {
+        background: var(--surface);
+        display: grid;
+        min-width: 0;
+      }
+
+      .queue-rail {
+        border-right: 1px solid var(--border);
+        grid-template-rows: auto auto auto 1fr;
+      }
+
+      .decision-rail {
+        border-left: 1px solid var(--border);
+        grid-template-rows: auto auto 1fr auto;
+      }
+
+      .rail-top,
+      .decision-top {
+        border-bottom: 1px solid var(--border);
+        display: grid;
+        gap: 10px;
+        padding: 13px 12px;
+      }
+
+      .queue-head,
+      .decision-head,
+      .stage-head {
+        align-items: start;
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        min-width: 0;
+      }
+
+      .queue-title,
+      .decision-title,
+      .stage-title {
+        min-width: 0;
+      }
+
+      h3 {
+        font-size: 0.92rem;
+        letter-spacing: 0;
+        line-height: 1.2;
+        margin: 0;
+      }
+
+      .subtle,
+      .path,
+      .row-meta,
+      .small {
+        color: var(--muted);
+      }
+
+      .subtle,
+      .small {
+        font-size: 0.76rem;
+      }
+
+      .sync-line {
+        align-items: center;
+        color: var(--muted);
+        display: flex;
+        font-size: 0.76rem;
+        gap: 7px;
+        min-height: 20px;
+      }
+
+      .sync-line.warning {
+        color: var(--focus);
+      }
+
+      .btn,
+      .icon-btn,
+      .seg button,
+      .filter-chip,
+      .sort-menu button {
+        align-items: center;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        color: var(--text);
+        display: inline-flex;
+        gap: 7px;
+        height: 32px;
+        justify-content: center;
+        min-width: 0;
+        padding: 0 10px;
+        white-space: nowrap;
+      }
+
+      .btn:hover,
+      .icon-btn:hover,
+      .seg button:hover,
+      .filter-chip:hover,
+      .sort-menu button:hover {
+        background: var(--surface-3);
+        border-color: var(--border-strong);
+      }
+
+      .btn:focus-visible,
+      .icon-btn:focus-visible,
+      .seg button:focus-visible,
+      .filter-chip:focus-visible,
+      .sort-menu button:focus-visible,
+      select:focus-visible,
+      .torrent:focus-visible,
+      .candidate-row:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      .icon-btn {
+        width: 34px;
+      }
+
+      .primary {
+        background: var(--surface-3);
+      }
+
+      .keep {
+        background: var(--keep);
+        border-color: oklch(76% 0.11 154);
+        color: oklch(14% 0.011 154);
+        font-weight: 700;
+      }
+
+      .keep:hover {
+        background: oklch(75% 0.135 154);
+      }
+
+      .reject {
+        background: var(--danger);
+        border-color: oklch(70% 0.16 31);
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .reject:hover {
+        background: oklch(68% 0.185 31);
+      }
+
+      .filter-row {
+        display: grid;
+        gap: 7px;
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+
+      .filter-chip {
+        align-items: start;
+        display: grid;
+        gap: 2px;
+        height: auto;
+        justify-items: start;
+        padding: 8px 9px;
+        text-align: left;
+      }
+
+      .filter-chip span:first-child {
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .filter-chip strong {
+        font-size: 0.95rem;
+        line-height: 1;
+      }
+
+      .filter-chip.active {
+        background: oklch(27% 0.035 68);
+        border-color: oklch(53% 0.08 68);
+      }
+
+      .sort-box {
+        background: oklch(18.8% 0.012 246);
+        border-bottom: 1px solid var(--border);
+        display: grid;
+        gap: 8px;
+        padding: 11px 12px;
+      }
+
+      .sort-row {
+        align-items: center;
+        display: grid;
+        gap: 8px;
+        grid-template-columns: auto 1fr auto;
+      }
+
+      label {
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 650;
+      }
+
+      select {
+        appearance: none;
+        background:
+          linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 13px) 50% / 6px 6px no-repeat,
+          linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 9px) 50% / 6px 6px no-repeat,
+          var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        color: var(--text);
+        height: 32px;
+        min-width: 0;
+        padding: 0 28px 0 10px;
+      }
+
+      .seg {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .seg button {
+        border-radius: 0;
+        font-size: 0.75rem;
+        padding: 0 8px;
+      }
+
+      .seg button:first-child {
+        border-radius: 7px 0 0 7px;
+      }
+
+      .seg button:last-child {
+        border-left: 0;
+        border-radius: 0 7px 7px 0;
+      }
+
+      .seg .active {
+        background: oklch(28% 0.045 68);
+        border-color: oklch(54% 0.09 68);
+        color: var(--focus);
+      }
+
+      .torrent-list {
+        display: grid;
+        gap: 2px;
+        overflow: auto;
+        padding: 8px;
+      }
+
+      .torrent {
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        color: var(--text);
+        display: grid;
+        gap: 5px;
+        padding: 9px 10px;
+        text-align: left;
+      }
+
+      .torrent:hover {
+        background: oklch(24% 0.015 246);
+      }
+
+      .torrent.active {
+        background: var(--surface-2);
+        border-color: var(--focus);
+      }
+
+      .torrent-line,
+      .meta-line {
+        align-items: center;
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        min-width: 0;
+      }
+
+      .torrent-name {
+        font-size: 0.84rem;
+        font-weight: 650;
+      }
+
+      .row-meta {
+        flex: 0 0 auto;
+        font-size: 0.74rem;
+      }
+
+      .stage-area {
+        background: oklch(14.8% 0.01 248);
+        display: grid;
+        grid-template-rows: auto minmax(330px, 1fr) auto auto;
+        max-width: 100%;
+        min-width: 0;
+      }
+
+      .stage-head {
+        background: oklch(17.5% 0.011 248);
+        border-bottom: 1px solid var(--border);
+        padding: 12px 14px;
+      }
+
+      .file-title {
+        display: block;
+        font-size: 0.95rem;
+        margin-bottom: 3px;
+      }
+
+      .path {
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.72rem;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .preview {
+        display: grid;
+        min-height: 0;
+        padding: 16px;
+        place-items: center;
+      }
+
+      .video-box {
+        aspect-ratio: 16 / 9;
+        background:
+          linear-gradient(155deg, oklch(22% 0.01 248), oklch(12% 0.008 248)),
+          oklch(16% 0.01 248);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        display: grid;
+        max-height: 100%;
+        overflow: hidden;
+        place-items: center;
+        width: min(100%, 900px);
+      }
+
+      .video-plate {
+        align-items: center;
+        color: var(--muted);
+        display: grid;
+        gap: 10px;
+        justify-items: center;
+      }
+
+      .play-mark {
+        align-items: center;
+        border: 1px solid var(--border-strong);
+        border-radius: 50%;
+        color: var(--text);
+        display: grid;
+        font-size: 1rem;
+        height: 54px;
+        place-items: center;
+        width: 54px;
+      }
+
+      .command-strip {
+        align-items: center;
+        background: oklch(17.5% 0.011 248);
+        border-top: 1px solid var(--border);
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        padding: 10px 12px;
+      }
+
+      .command-strip .btn {
+        width: 100%;
+      }
+
+      kbd {
+        background: oklch(18% 0.012 246);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        color: var(--muted);
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.68rem;
+        line-height: 1;
+        padding: 3px 5px;
+      }
+
+      .decision-summary {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .metric {
+        background: oklch(18.8% 0.012 246);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        display: grid;
+        gap: 2px;
+        padding: 9px;
+      }
+
+      .metric strong {
+        font-size: 1rem;
+      }
+
+      .metric span {
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .decision-actions {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .inline-confirm {
+        background: var(--danger-soft);
+        border: 1px solid oklch(50% 0.11 31);
+        border-radius: 8px;
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .inline-confirm strong {
+        font-size: 0.82rem;
+      }
+
+      .inline-confirm span {
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.35;
+      }
+
+      .decision-inline {
+        background: var(--surface);
+        border-top: 1px solid var(--border);
+        display: grid;
+        grid-template-columns: 1fr;
+        min-height: 0;
+        min-width: 0;
+      }
+
+      .decision-inline .decision-top {
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        display: grid;
+        gap: 10px;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        padding: 10px 12px;
+      }
+
+      .decision-inline details {
+        border-top: 1px solid var(--border);
+      }
+
+      .decision-inline .decision-head {
+        align-items: center;
+      }
+
+      .decision-inline .decision-title {
+        display: grid;
+        gap: 2px;
+      }
+
+      .decision-inline .decision-title h3 {
+        font-size: 0.86rem;
+      }
+
+      .decision-inline .decision-summary {
+        display: flex;
+        flex-wrap: wrap;
+      }
+
+      .decision-inline .metric {
+        align-items: center;
+        display: flex;
+        gap: 7px;
+        min-height: 32px;
+        padding: 6px 8px;
+      }
+
+      .decision-inline .metric strong {
+        font-size: 0.85rem;
+      }
+
+      .decision-inline .metric span {
+        font-size: 0.7rem;
+      }
+
+      .decision-inline .decision-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .decision-inline .inline-confirm {
+        align-items: center;
+        display: flex;
+        grid-column: 1 / -1;
+        justify-content: space-between;
+        padding: 8px 9px;
+      }
+
+      .candidate-section {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        min-height: 0;
+      }
+
+      .section-head {
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 12px;
+        justify-content: space-between;
+        padding: 11px 12px;
+      }
+
+      .candidate-list {
+        display: grid;
+        gap: 2px;
+        overflow: auto;
+        padding: 8px;
+      }
+
+      .candidate-row {
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        color: var(--text);
+        display: grid;
+        gap: 7px;
+        padding: 9px;
+        text-align: left;
+      }
+
+      .candidate-row.selected {
+        background: var(--surface-2);
+        border-color: var(--focus);
+      }
+
+      .candidate-row.marked {
+        background: var(--keep-soft);
+        border-color: oklch(47% 0.09 154);
+      }
+
+      .candidate-name {
+        font-size: 0.8rem;
+        font-weight: 650;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .candidate-meta {
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 0.72rem;
+        gap: 8px;
+      }
+
+      details {
+        border-top: 1px solid var(--border);
+      }
+
+      summary {
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 0.78rem;
+        padding: 11px 12px;
+      }
+
+      .dock-workspace {
+        display: grid;
+        grid-template-columns: 320px minmax(420px, 1fr);
+        min-height: 660px;
+        min-width: 0;
+      }
+
+      .dock-workspace .stage-area {
+        grid-template-rows: auto auto minmax(310px, 1fr) auto;
+      }
+
+      .stage-action-dock {
+        align-items: center;
+        background: oklch(19% 0.012 248);
+        border-bottom: 1px solid var(--border);
+        display: grid;
+        gap: 8px;
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        padding: 10px 12px;
+      }
+
+      .stage-action-dock .small {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .right-grid {
+        border-top: 1px solid var(--border);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 214px;
+      }
+
+      .right-grid .candidate-section:first-child {
+        border-right: 1px solid var(--border);
+      }
+
+      .sort-menu-wrap {
+        position: relative;
+      }
+
+      .sort-menu {
+        background: var(--surface-2);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        display: grid;
+        gap: 3px;
+        margin-top: 8px;
+        padding: 6px;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        width: 232px;
+        z-index: 3;
+      }
+
+      .sort-menu button {
+        border-color: transparent;
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .sort-menu .active {
+        background: oklch(28% 0.045 68);
+        color: var(--focus);
+      }
+
+      @media (max-width: 1180px) {
+        .workspace,
+        .dock-workspace {
+          grid-template-columns: 1fr;
+        }
+
+        .queue-rail,
+        .decision-rail {
+          border: 0;
+        }
+
+        .queue-rail {
+          border-bottom: 1px solid var(--border);
+        }
+
+        .decision-rail {
+          border-top: 1px solid var(--border);
+        }
+
+        .torrent-list {
+          grid-auto-flow: column;
+          grid-auto-columns: minmax(220px, 1fr);
+          overflow-x: auto;
+        }
+
+        .stage-area {
+          min-height: 520px;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .page {
+          max-width: 100vw;
+          padding: 12px;
+          width: 100vw;
+        }
+
+        .brief,
+        .mockup-label,
+        .frame {
+          max-width: calc(100vw - 24px);
+          width: calc(100vw - 24px);
+        }
+
+        .brief,
+        .mockup-label,
+        .titlebar,
+        .queue-head,
+        .decision-head,
+        .stage-head,
+        .stage-action-dock {
+          align-items: stretch;
+          display: grid;
+        }
+
+        .brand,
+        .brief,
+        .mockup-label,
+        .queue-rail,
+        .decision-rail,
+        .stage-title {
+          min-width: 0;
+        }
+
+        .brand strong {
+          font-size: 1rem;
+        }
+
+        .title-meta {
+          display: none;
+        }
+
+        .title-actions {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          min-width: 0;
+        }
+
+        .status-pill {
+          justify-content: center;
+          min-width: 0;
+        }
+
+        .brief .rule {
+          white-space: normal;
+        }
+
+        .brief > *,
+        .mockup-label > * {
+          min-width: 0;
+        }
+
+        .brief p,
+        .mockup-label p {
+          max-width: 34ch;
+        }
+
+        .filter-row,
+        .sort-row,
+        .decision-summary,
+        .decision-actions,
+        .command-strip,
+        .decision-inline,
+        .right-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .stage-action-dock {
+          grid-template-columns: 1fr;
+        }
+
+        .stage-action-dock .btn,
+        .stage-head .btn,
+        .title-actions .btn {
+          width: 100%;
+        }
+
+        .decision-inline .decision-top {
+          grid-template-columns: 1fr;
+        }
+
+        .sort-menu {
+          left: 0;
+          right: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="brief" aria-label="mockup goal">
+        <div>
+          <h1>Queue controls, consolidated</h1>
+          <p>
+            Filters live once in the queue rail. Refresh status lives beside the queue title. Review commands live once near the file decision, and the old bottom status and keybind strip is gone.
+          </p>
+        </div>
+        <span class="rule">Product register, restrained iron palette</span>
+      </section>
+
+      <section class="mockup-set" aria-labelledby="mockup-a-title">
+        <div class="mockup-label">
+          <div>
+            <h2 id="mockup-a-title">Mockup A, recommended decision dock</h2>
+            <p>Best when Keep, Reject, candidates, and capacity should stay under the active preview controls.</p>
+          </div>
+          <p>No bottom bar. No duplicate command rows.</p>
+        </div>
+
+        <article class="frame" aria-label="recommended decision dock mockup">
+          <header class="titlebar">
+            <div class="brand">
+              <span class="brand-mark" aria-hidden="true"></span>
+              <strong>qBittorrent Review Queue</strong>
+              <span class="title-meta">127.0.0.1:8080</span>
+            </div>
+            <div class="title-actions">
+              <button class="btn" type="button">Settings</button>
+            </div>
+          </header>
+
+          <div class="workspace">
+            <aside class="queue-rail" aria-label="review queue">
+              <div class="rail-top">
+                <div class="queue-head">
+                  <div class="queue-title">
+                    <h3>Queue</h3>
+                    <span class="subtle">8 completed torrents</span>
+                  </div>
+                  <button class="btn primary" type="button">Refresh</button>
+                </div>
+                <div class="sync-line">
+                  <span class="status-dot"></span>
+                  <span>Api connected, refreshed 24 sec ago</span>
+                </div>
+                <div class="filter-row" aria-label="queue filters">
+                  <button class="filter-chip active" type="button"><span>All</span><strong>8</strong></button>
+                  <button class="filter-chip" type="button"><span>With video</span><strong>7</strong></button>
+                  <button class="filter-chip" type="button"><span>Attention</span><strong>1</strong></button>
+                </div>
+              </div>
+
+              <div class="sort-box" aria-label="queue sort">
+                <div class="sort-row">
+                  <label for="sort-a">Sort</label>
+                  <select id="sort-a">
+                    <option>Added on</option>
+                    <option>Name</option>
+                    <option>Size</option>
+                  </select>
+                  <div class="seg" aria-label="sort direction">
+                    <button class="active" type="button">Desc</button>
+                    <button type="button">Asc</button>
+                  </div>
+                </div>
+                <span class="small">Newest completed torrents first</span>
+              </div>
+
+              <div class="torrent-list" aria-label="torrent list">
+                <button class="torrent active" type="button">
+                  <span class="torrent-line">
+                    <span class="torrent-name">Ferry.2024.2160p.WEB-DL</span>
+                    <span class="row-meta">9.4 GB</span>
+                  </span>
+                  <span class="meta-line">
+                    <span class="row-meta">4 videos</span>
+                    <span class="row-meta">added 10:34</span>
+                  </span>
+                </button>
+                <button class="torrent" type="button">
+                  <span class="torrent-line">
+                    <span class="torrent-name">Archive Set S02</span>
+                    <span class="row-meta">5.1 GB</span>
+                  </span>
+                  <span class="meta-line">
+                    <span class="row-meta">2 videos</span>
+                    <span class="row-meta">added 09:18</span>
+                  </span>
+                </button>
+                <button class="torrent" type="button">
+                  <span class="torrent-line">
+                    <span class="torrent-name">Concert.Rough.Cut</span>
+                    <span class="row-meta">4.8 GB</span>
+                  </span>
+                  <span class="meta-line">
+                    <span class="row-meta">3 videos</span>
+                    <span class="row-meta">added yesterday</span>
+                  </span>
+                </button>
+                <button class="torrent" type="button">
+                  <span class="torrent-line">
+                    <span class="torrent-name">Old.Batches.Mixed</span>
+                    <span class="row-meta">3.1 GB</span>
+                  </span>
+                  <span class="meta-line">
+                    <span class="row-meta">attention</span>
+                    <span class="row-meta">path mapping</span>
+                  </span>
+                </button>
+              </div>
+            </aside>
+
+            <section class="stage-area" aria-label="selected media">
+              <div class="stage-head">
+                <div class="stage-title">
+                  <strong class="file-title">Ferry.2024.main.mkv</strong>
+                  <p class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</p>
+                </div>
+                <button class="btn" type="button"><kbd>T</kbd>Open external</button>
+              </div>
+              <div class="preview">
+                <div class="video-box">
+                  <div class="video-plate">
+                    <span class="play-mark">Play</span>
+                    <span>Embedded preview</span>
+                  </div>
+                </div>
+              </div>
+              <nav class="command-strip" aria-label="review navigation">
+                <button class="btn" type="button"><kbd>Q</kbd>Prev torrent</button>
+                <button class="btn" type="button"><kbd>W</kbd>Prev video</button>
+                <button class="btn primary" type="button"><kbd>F</kbd>Mark selected</button>
+                <button class="btn" type="button"><kbd>S</kbd>Next video</button>
+                <button class="btn" type="button"><kbd>A</kbd>Next torrent</button>
+              </nav>
+
+              <section class="decision-inline" aria-label="review decision">
+                <div class="decision-top">
+                  <div class="decision-head">
+                    <div class="decision-title">
+                      <h3>Review</h3>
+                      <span class="subtle">Marked files and delete risk</span>
+                    </div>
+                    <span class="status-pill">2 marked</span>
+                  </div>
+                  <div class="decision-summary">
+                    <div class="metric">
+                      <strong>18 / 40</strong>
+                      <span>slots after Keep</span>
+                    </div>
+                    <div class="metric">
+                      <strong>2.9 GB</strong>
+                      <span>leftovers delete</span>
+                    </div>
+                  </div>
+                  <div class="decision-actions">
+                    <button class="btn keep" type="button"><kbd>E</kbd>Keep marked</button>
+                    <button class="btn reject" type="button"><kbd>D</kbd>Reject torrent</button>
+                  </div>
+                  <div class="inline-confirm">
+                    <strong>Reject deletes every file in this torrent.</strong>
+                    <span>Shown only after first Reject. Second Reject confirms qBittorrent delete-with-files.</span>
+                  </div>
+                </div>
+
+                <section class="candidate-section" aria-label="video candidates">
+                  <div class="section-head">
+                    <h3>Candidates</h3>
+                    <span class="small">largest first</span>
+                  </div>
+                  <div class="candidate-list">
+                    <button class="candidate-row selected marked" type="button">
+                      <span class="candidate-name">Ferry.2024.main.mkv</span>
+                      <span class="candidate-meta"><span>5.7 GB</span><span>index 0</span><span>previewing</span><span>marked</span></span>
+                    </button>
+                    <button class="candidate-row marked" type="button">
+                      <span class="candidate-name">Ferry.2024.extra.mkv</span>
+                      <span class="candidate-meta"><span>2.8 GB</span><span>index 1</span><span>marked</span></span>
+                    </button>
+                    <button class="candidate-row" type="button">
+                      <span class="candidate-name">sample.mp4</span>
+                      <span class="candidate-meta"><span>74 MB</span><span>index 2</span><span>unmarked</span></span>
+                    </button>
+                    <button class="candidate-row" type="button">
+                      <span class="candidate-name">behind-the-scenes.mkv</span>
+                      <span class="candidate-meta"><span>62 MB</span><span>index 3</span><span>unmarked</span></span>
+                    </button>
+                  </div>
+                </section>
+
+                <details>
+                  <summary>12 junk files, 148 MB</summary>
+                </details>
+              </section>
+            </section>
+          </div>
+        </article>
+      </section>
+
+      <section class="mockup-set" aria-labelledby="mockup-b-title">
+        <div class="mockup-label">
+          <div>
+            <h2 id="mockup-b-title">Mockup B, stage action dock</h2>
+            <p>Best when you want more stage width and fewer side panels. Sort menu shows every field and direction pair.</p>
+          </div>
+          <p>Still one refresh status. Still no footer.</p>
+        </div>
+
+        <article class="frame" aria-label="stage action dock mockup">
+          <header class="titlebar">
+            <div class="brand">
+              <span class="brand-mark" aria-hidden="true"></span>
+              <strong>qBittorrent Review Queue</strong>
+              <span class="title-meta">127.0.0.1:8080</span>
+            </div>
+            <div class="title-actions">
+              <button class="btn" type="button">Settings</button>
+            </div>
+          </header>
+
+          <div class="dock-workspace">
+            <aside class="queue-rail" aria-label="review queue compact">
+              <div class="rail-top">
+                <div class="queue-head">
+                  <div class="queue-title">
+                    <h3>Queue</h3>
+                    <span class="subtle">8 completed torrents</span>
+                  </div>
+                  <button class="btn primary" type="button">Refresh</button>
+                </div>
+                <div class="sync-line warning">
+                  <span class="status-dot"></span>
+                  <span>Api connected, refresh running, 2 details pending</span>
+                </div>
+                <div class="filter-row" aria-label="queue filters compact">
+                  <button class="filter-chip active" type="button"><span>All</span><strong>8</strong></button>
+                  <button class="filter-chip" type="button"><span>With video</span><strong>7</strong></button>
+                  <button class="filter-chip" type="button"><span>Attention</span><strong>1</strong></button>
+                </div>
+              </div>
+
+              <div class="sort-box" aria-label="expanded queue sort">
+                <div class="queue-head">
+                  <label>Sort queue</label>
+                  <div class="sort-menu-wrap">
+                    <button class="btn" type="button">Added on, desc</button>
+                    <div class="sort-menu" role="menu" aria-label="sort options">
+                      <button type="button" role="menuitem"><span>Name</span><span>Asc</span></button>
+                      <button type="button" role="menuitem"><span>Name</span><span>Desc</span></button>
+                      <button type="button" role="menuitem"><span>Size</span><span>Asc</span></button>
+                      <button type="button" role="menuitem"><span>Size</span><span>Desc</span></button>
+                      <button type="button" role="menuitem"><span>Added on</span><span>Asc</span></button>
+                      <button class="active" type="button" role="menuitem"><span>Added on</span><span>Desc</span></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="torrent-list" aria-label="torrent list compact">
+                <button class="torrent active" type="button">
+                  <span class="torrent-line"><span class="torrent-name">Ferry.2024.2160p.WEB-DL</span><span class="row-meta">9.4 GB</span></span>
+                  <span class="meta-line"><span class="row-meta">4 videos</span><span class="row-meta">added 10:34</span></span>
+                </button>
+                <button class="torrent" type="button">
+                  <span class="torrent-line"><span class="torrent-name">Archive Set S02</span><span class="row-meta">5.1 GB</span></span>
+                  <span class="meta-line"><span class="row-meta">2 videos</span><span class="row-meta">added 09:18</span></span>
+                </button>
+                <button class="torrent" type="button">
+                  <span class="torrent-line"><span class="torrent-name">Concert.Rough.Cut</span><span class="row-meta">4.8 GB</span></span>
+                  <span class="meta-line"><span class="row-meta">3 videos</span><span class="row-meta">added yesterday</span></span>
+                </button>
+              </div>
+            </aside>
+
+            <section class="stage-area" aria-label="selected media compact">
+              <div class="stage-head">
+                <div class="stage-title">
+                  <strong class="file-title">Ferry.2024.main.mkv</strong>
+                  <p class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</p>
+                </div>
+                <button class="btn" type="button"><kbd>T</kbd>Open external</button>
+              </div>
+
+              <div class="stage-action-dock" aria-label="one action dock">
+                <span class="small">2 marked, 18 / 40 slots after Keep, 2.9 GB leftovers if cleaned</span>
+                <button class="btn primary" type="button"><kbd>F</kbd>Mark selected</button>
+                <button class="btn keep" type="button"><kbd>E</kbd>Keep marked</button>
+                <button class="btn reject" type="button"><kbd>D</kbd>Reject torrent</button>
+              </div>
+
+              <div class="preview">
+                <div class="video-box">
+                  <div class="video-plate">
+                    <span class="play-mark">Play</span>
+                    <span>Embedded preview</span>
+                  </div>
+                </div>
+              </div>
+
+              <nav class="command-strip" aria-label="review navigation compact">
+                <button class="btn" type="button"><kbd>Q</kbd>Prev torrent</button>
+                <button class="btn" type="button"><kbd>W</kbd>Prev video</button>
+                <button class="btn" type="button"><kbd>S</kbd>Next video</button>
+                <button class="btn" type="button"><kbd>A</kbd>Next torrent</button>
+                <button class="btn" type="button">Keyboard help</button>
+              </nav>
+
+              <div class="right-grid">
+                <section class="candidate-section" aria-label="video candidates compact">
+                  <div class="section-head">
+                    <h3>Candidates</h3>
+                    <span class="small">largest first</span>
+                  </div>
+                  <div class="candidate-list">
+                    <button class="candidate-row selected marked" type="button">
+                      <span class="candidate-name">Ferry.2024.main.mkv</span>
+                      <span class="candidate-meta"><span>5.7 GB</span><span>previewing</span><span>marked</span></span>
+                    </button>
+                    <button class="candidate-row marked" type="button">
+                      <span class="candidate-name">Ferry.2024.extra.mkv</span>
+                      <span class="candidate-meta"><span>2.8 GB</span><span>marked</span></span>
+                    </button>
+                    <button class="candidate-row" type="button">
+                      <span class="candidate-name">sample.mp4</span>
+                      <span class="candidate-meta"><span>74 MB</span><span>unmarked</span></span>
+                    </button>
+                  </div>
+                </section>
+
+                <section class="candidate-section" aria-label="confirmation compact">
+                  <div class="section-head">
+                    <h3>Confirmation</h3>
+                    <span class="small">inline only</span>
+                  </div>
+                  <div class="candidate-list">
+                    <div class="inline-confirm">
+                      <strong>Keep will move 2 marked files first.</strong>
+                      <span>Cleanup runs only after moved files verify in the session folder.</span>
+                    </div>
+                    <div class="inline-confirm">
+                      <strong>Reject deletes torrent files.</strong>
+                      <span>This appears beside the action dock, not in a footer or modal.</span>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </section>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

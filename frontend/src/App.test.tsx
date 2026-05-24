@@ -72,9 +72,12 @@ describe("App", () => {
     expect(screen.getByLabelText("Review queue")).toBeInTheDocument();
     expect(screen.getByLabelText("Media preview")).toBeInTheDocument();
     expect(screen.getByLabelText("Video candidates")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /F Keep/ }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /R Reject/ }).length).toBeGreaterThan(0);
-    expect(screen.getByText("16 / 40 session slots")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /E Keep/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /D Reject/ }).length).toBeGreaterThan(0);
+    expect(screen.getByText(/\/ 40/)).toBeInTheDocument();
+    expect(screen.getByText("slots after Keep")).toBeInTheDocument();
+    expect(screen.queryByText(/Junk files/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Left-hand keys/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Sample data/i)).not.toBeInTheDocument();
 
     await waitFor(() => {
@@ -82,7 +85,7 @@ describe("App", () => {
     });
   });
 
-  it("auto-polls the queue every 15 seconds when visible", async () => {
+  it("auto-polls the queue every 1 minute when visible", async () => {
     vi.useFakeTimers();
     let queueCalls = 0;
     vi.stubGlobal(
@@ -107,7 +110,13 @@ describe("App", () => {
     expect(screen.getAllByText("Done Torrent").length).toBeGreaterThan(0);
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15_000);
+      await vi.advanceTimersByTimeAsync(59_000);
+    });
+
+    expect(queueCalls).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
     });
 
     expect(queueCalls).toBe(2);
@@ -136,7 +145,8 @@ describe("App", () => {
     render(<App />);
     expect((await screen.findAllByText("Done Torrent")).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: /T Settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Settings$/ }));
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Save settings/ }));
 
     await waitFor(() => expect(queueCalls).toBe(2));
@@ -163,7 +173,8 @@ describe("App", () => {
     render(<App />);
     expect((await screen.findAllByText("Done Torrent")).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: /T Settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Settings$/ }));
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Browse session folder" }));
 
     await waitFor(() =>
@@ -192,11 +203,42 @@ describe("App", () => {
     render(<App />);
     expect((await screen.findAllByText("Done Torrent")).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: /T Settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Settings$/ }));
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Browse Windows downloads root" }));
 
     await waitFor(() =>
       expect(screen.getByLabelText("WSL downloads root")).toHaveValue("/mnt/c/Users/seanl/Documents/Torrents"),
+    );
+  });
+
+  it("selects the WSL downloads root through the local folder picker", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/queue") {
+          return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/torrents/abc") {
+          return Response.json(torrentDetail("abc", "Done Torrent"));
+        }
+        if (url === "/api/system/pick-folder") {
+          return Response.json({ path: "D:\\Torrents", cancelled: false });
+        }
+        throw new Error(`unexpected url ${url}`);
+      }),
+    );
+
+    render(<App />);
+    expect((await screen.findAllByText("Done Torrent")).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Settings$/ }));
+    expect(screen.getByRole("dialog", { name: "Settings" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Browse WSL downloads root" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("WSL downloads root")).toHaveValue("/mnt/d/Torrents"),
     );
   });
 
@@ -232,7 +274,7 @@ describe("App", () => {
     expect((await screen.findAllByText("main.mp4")).length).toBeGreaterThan(0);
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getAllByRole("button", { name: /F Keep/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /E Keep/ })[0]);
 
     expect(screen.getByText("Keep deletes unmarked torrent leftovers.")).toBeInTheDocument();
 

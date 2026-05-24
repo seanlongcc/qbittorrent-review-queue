@@ -6,7 +6,6 @@ import {
   ExternalLink,
   Film,
   FolderOpen,
-  HardDrive,
   RefreshCw,
   Settings,
   Trash2,
@@ -14,61 +13,44 @@ import {
 } from "lucide-react";
 import { pickFolder, updateSettings } from "@/api/client";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import type { LocalSettings, ReviewTorrent, SettingsUpdate, VideoCandidate } from "@/domain/types";
 import { formatBytes } from "./format";
 import type { ReviewCommand } from "./keyboard";
 
-export function TitleBar({ settings }: { settings: LocalSettings }) {
+export type QueueSortField = "added" | "name" | "size";
+export type SortDirection = "asc" | "desc";
+
+export type QueueSort = {
+  field: QueueSortField;
+  direction: SortDirection;
+};
+
+const suppressedReviewNotices = new Set([
+  "Queue ready.",
+  "Loading qBittorrent queue.",
+  "Refreshing qBittorrent queue.",
+  "No completed torrents are ready.",
+]);
+
+export function TitleBar({
+  settings,
+  busy,
+  onSettings,
+}: {
+  settings: LocalSettings;
+  busy: boolean;
+  onSettings: () => void;
+}) {
   return (
     <header className="qbt-titlebar">
       <div className="qbt-brand">
-        <span className="qbt-drop" aria-hidden="true" />
         <span>qBittorrent Review Queue</span>
       </div>
       <span className="qbt-meta">{settings.qbtBaseUrl}</span>
-    </header>
-  );
-}
-
-export function Toolbar({
-  busy,
-  armedAction,
-  canOpen,
-  canReview,
-  onCommand,
-}: {
-  busy: boolean;
-  armedAction: "keep" | "reject" | null;
-  canOpen: boolean;
-  canReview: boolean;
-  onCommand: (command: ReviewCommand) => void;
-}) {
-  return (
-    <nav className="qbt-toolbar" aria-label="toolbar">
-      <CommandButton tone="primary" disabled={busy} command="Q" onClick={() => onCommand("refreshQueue")}>
-        <RefreshCw size={15} /> Refresh
-      </CommandButton>
-      <CommandButton disabled={busy || !canOpen} command="E" onClick={() => onCommand("openExternal")}>
-        <ExternalLink size={15} /> Open external
-      </CommandButton>
-      <CommandButton tone="keep" disabled={busy || !canReview} command="F" onClick={() => onCommand("keep")}>
-        <Check size={15} /> {armedAction === "keep" ? "Confirm Keep" : "Keep marked"}
-      </CommandButton>
-      <CommandButton tone="reject" disabled={busy || !canReview} command="R" onClick={() => onCommand("reject")}>
-        <Trash2 size={15} /> {armedAction === "reject" ? "Confirm Reject" : "Reject torrent"}
-      </CommandButton>
-      <CommandButton disabled={busy} command="T" onClick={() => onCommand("toggleSettings")}>
+      <Button className="btn" type="button" disabled={busy} onClick={onSettings}>
         <Settings size={15} /> Settings
-      </CommandButton>
-    </nav>
+      </Button>
+    </header>
   );
 }
 
@@ -78,49 +60,112 @@ export function QueueSidebar({
   activeHash,
   settings,
   busy,
+  loading,
+  sort,
   onSelect,
   onCleanupRetry,
+  onRefresh,
+  onSortChange,
 }: {
   torrents: ReviewTorrent[];
   attentionTorrents: ReviewTorrent[];
   activeHash: string | null;
   settings: LocalSettings;
   busy: boolean;
+  loading: boolean;
+  sort: QueueSort;
   onSelect: (hash: string) => void;
   onCleanupRetry: (hash: string) => void;
+  onRefresh: () => void;
+  onSortChange: (sort: QueueSort) => void;
 }) {
   const [cleanupConfirmHash, setCleanupConfirmHash] = useState<string | null>(null);
   const activeTorrentRef = useRef<HTMLButtonElement | null>(null);
   const videoReadyCount = torrents.filter((torrent) => (torrent.candidates?.length ?? 0) > 0).length;
+  const apiStatus = settings.connected ? (loading ? "Api connected, refreshing queue." : "Api connected, refreshed recently.") : "Api disconnected. Check settings.";
 
   useEffect(() => {
     if (!activeHash) {
       return;
     }
-    activeTorrentRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    const activeTorrent = activeTorrentRef.current;
+    const torrentRail = activeTorrent?.closest(".torrent-list");
+    if (
+      activeTorrent &&
+      torrentRail instanceof HTMLElement &&
+      torrentRail.scrollHeight > torrentRail.clientHeight
+    ) {
+      activeTorrent.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+    }
   }, [activeHash]);
 
   return (
     <aside className="qbt-sidebar" aria-label="Review queue">
-      <div className="rail-status" aria-label="queue and session status">
-        <span><strong>{torrents.length}</strong><em>completed</em></span>
-        <span><strong>{settings.folderCount} / {settings.sessionFolderLimit}</strong><em>session slots</em></span>
-        <span><strong>{videoReadyCount || "..."}</strong><em>with video</em></span>
-        <span>
-          <strong className={settings.connected ? "status-ok" : "status-off"}>
-            {settings.connected ? "API ok" : "API off"}
-          </strong>
-          <em>local WebUI</em>
-        </span>
+      <div className="queue-top">
+        <div className="queue-head">
+          <div>
+            <h2>Queue</h2>
+            <span>{torrents.length} completed torrents</span>
+          </div>
+          <Button className="btn primary" type="button" disabled={busy || loading} onClick={onRefresh}>
+            <RefreshCw size={15} /> Refresh
+          </Button>
+        </div>
+        <div className={settings.connected ? "sync-line" : "sync-line offline"} role="status">
+          <span aria-hidden="true" />
+          <span>{apiStatus}</span>
+        </div>
+        <div className="filter-grid" aria-label="Queue filters">
+          <button className="filter-card active" type="button">
+            <span>All</span>
+            <strong>{torrents.length}</strong>
+          </button>
+          <button className="filter-card" type="button">
+            <span>With video</span>
+            <strong>{videoReadyCount || "-"}</strong>
+          </button>
+          <button className="filter-card" type="button">
+            <span>Attention</span>
+            <strong>{attentionTorrents.length}</strong>
+          </button>
+        </div>
       </div>
-      <div className="side-head"><span>Filters</span><span>{torrents.length}</span></div>
-      <button className="filter active" type="button"><span>Completed</span><span>{torrents.length}</span></button>
-      <button className="filter" type="button"><span>Has video</span><span>{videoReadyCount || "-"}</span></button>
-      <button className="filter" type="button"><span>Needs attention</span><span>{attentionTorrents.length}</span></button>
+      <div className="sort-box" aria-label="Queue sort">
+        <div className="sort-row">
+          <label htmlFor="queue-sort">Sort</label>
+          <select
+            id="queue-sort"
+            value={sort.field}
+            onChange={(event) => onSortChange({ ...sort, field: event.target.value as QueueSortField })}
+          >
+            <option value="added">Added on</option>
+            <option value="name">Name</option>
+            <option value="size">Size</option>
+          </select>
+          <div className="sort-direction" aria-label="Sort direction">
+            <button
+              className={sort.direction === "desc" ? "active" : ""}
+              type="button"
+              onClick={() => onSortChange({ ...sort, direction: "desc" })}
+            >
+              Desc
+            </button>
+            <button
+              className={sort.direction === "asc" ? "active" : ""}
+              type="button"
+              onClick={() => onSortChange({ ...sort, direction: "asc" })}
+            >
+              Asc
+            </button>
+          </div>
+        </div>
+        <span>{sortDescription(sort)}</span>
+      </div>
       <div className="side-head"><span>Torrents</span><span>Size</span></div>
       <div className="torrent-list">
         {torrents.map((torrent) => {
           const active = torrent.hash === activeHash;
+          const candidateCount = torrent.candidates?.length ?? 0;
           return (
             <button
               aria-current={active ? "true" : undefined}
@@ -130,8 +175,13 @@ export function QueueSidebar({
               type="button"
               onClick={() => onSelect(torrent.hash)}
             >
-              <span className="name">{torrent.name}</span>
-              <span className="meta">{formatBytes(torrent.totalSizeBytes)}</span>
+              <span className="torrent-line">
+                <span className="name">{torrent.name}</span>
+                <span className="meta">{formatBytes(torrent.totalSizeBytes)}</span>
+              </span>
+              <span className="meta">
+                {candidateCount ? `${candidateCount} video${candidateCount === 1 ? "" : "s"}` : "details pending"}
+              </span>
             </button>
           );
         })}
@@ -180,10 +230,14 @@ export function MediaStage({
   torrent,
   candidate,
   loading,
+  busy = false,
+  onOpenExternal,
 }: {
   torrent: ReviewTorrent | null;
   candidate: VideoCandidate | null;
   loading: boolean;
+  busy?: boolean;
+  onOpenExternal?: () => void;
 }) {
   const mediaSrc = torrent && candidate ? `/media/${torrent.hash}/${candidate.fileIndex}` : "";
   return (
@@ -196,6 +250,11 @@ export function MediaStage({
         <span className="meta">
           {loading ? "loading detail" : candidate ? `index ${candidate.fileIndex}, ${formatBytes(candidate.sizeBytes)}` : "no selected video"}
         </span>
+        {onOpenExternal ? (
+          <CommandButton disabled={busy || !candidate} command="T" onClick={onOpenExternal}>
+            <ExternalLink size={15} /> Open external
+          </CommandButton>
+        ) : null}
       </div>
       <div className="preview">
         {candidate?.playable ? (
@@ -204,15 +263,18 @@ export function MediaStage({
             autoPlay
             className="preview-video"
             controls
-            muted
             playsInline
             preload="auto"
             src={mediaSrc}
           />
         ) : (
-          <div className="video-placeholder">
-            {candidate ? <><Film size={28} /> Preview unavailable, use Open external</> : <><HardDrive size={28} /> Select a completed torrent</>}
-          </div>
+          candidate ? (
+            <div className="video-placeholder">
+              <Film size={28} /> Preview unavailable, use Open external
+            </div>
+          ) : (
+            <div aria-label="Empty media preview" className="video-placeholder empty" />
+          )
         )}
       </div>
     </section>
@@ -222,11 +284,11 @@ export function MediaStage({
 export function CandidateTabs({ onCommand }: { onCommand: (command: ReviewCommand) => void }) {
   return (
     <div className="candidate-tabs">
-      <Button className="tab active" type="button" onClick={() => onCommand("toggleMark")}><Keycap>D</Keycap>Candidates</Button>
-      <Button className="tab" type="button" onClick={() => onCommand("previousTorrent")}><Keycap>A</Keycap>Prev torrent</Button>
-      <Button className="tab" type="button" onClick={() => onCommand("nextTorrent")}><Keycap>S</Keycap>Next torrent</Button>
-      <Button className="tab" type="button" onClick={() => onCommand("previousCandidate")}><Keycap>Z</Keycap>Prev video</Button>
-      <Button className="tab" type="button" onClick={() => onCommand("nextCandidate")}><Keycap>X</Keycap>Next video</Button>
+      <Button className="tab" type="button" onClick={() => onCommand("previousTorrent")}><Keycap>Q</Keycap>Prev torrent</Button>
+      <Button className="tab" type="button" onClick={() => onCommand("nextTorrent")}><Keycap>A</Keycap>Next torrent</Button>
+      <Button className="tab" type="button" onClick={() => onCommand("previousCandidate")}><Keycap>W</Keycap>Prev video</Button>
+      <Button className="tab" type="button" onClick={() => onCommand("nextCandidate")}><Keycap>S</Keycap>Next video</Button>
+      <Button className="tab active" type="button" onClick={() => onCommand("toggleMark")}><Keycap>F</Keycap>Mark selected</Button>
     </div>
   );
 }
@@ -259,101 +321,128 @@ export function CandidateTable({
   onCommand: (command: ReviewCommand) => void;
 }) {
   const candidates = torrent?.candidates ?? [];
+  const markedCount = markedIndexes.length;
+  const folderCountAfterKeep = settings.folderCount + markedCount;
+  const leftoverBytes = torrent ? leftoverSizeBytes(torrent, markedIndexes) : 0;
+  const showNotice = Boolean(notice && !suppressedReviewNotices.has(notice));
+
   return (
     <section aria-label="Video candidates" className="candidate-section">
-      <div className="section-head">
-        <span>Candidates, largest first</span>
-        <span>{settings.folderCount} / {settings.sessionFolderLimit} session slots</span>
-      </div>
-      <div className="candidate-panel">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Mark</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Index</TableHead>
-              <TableHead>State</TableHead>
-              <TableHead>Path</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {candidates.map((candidate, index) => {
-              const marked = markedIndexes.includes(candidate.fileIndex);
-              const selected = activeCandidate?.fileIndex === candidate.fileIndex;
-              return (
-                <TableRow
-                  className={[selected ? "selected" : "", marked ? "marked" : ""].filter(Boolean).join(" ")}
-                  key={candidate.fileIndex}
-                  onClick={() => onSelectCandidate(index)}
-                >
-                  <TableCell>
-                    <button
-                      className="mark-cell"
-                      type="button"
-                      aria-label={marked ? "Unmark candidate" : "Mark candidate"}
-                      aria-pressed={marked}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onToggleMark(candidate.fileIndex);
-                      }}
-                    >
-                      {marked ? <CircleCheck size={16} /> : <Circle size={16} />}
-                    </button>
-                  </TableCell>
-                  <TableCell className="name">{candidate.name}</TableCell>
-                  <TableCell>{formatBytes(candidate.sizeBytes)}</TableCell>
-                  <TableCell>{candidate.fileIndex}</TableCell>
-                  <TableCell>{selected ? "Previewing" : marked ? "Marked" : "Video"}</TableCell>
-                  <TableCell className="path">{candidate.path}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-      {activeMissing ? (
-        <div className="vanished-alert" role="status">
-          Selected torrent no longer in qBittorrent. Keep and Reject are disabled until you choose another torrent or refresh.
+      <div className="review-dock" aria-label="Review decision">
+        <div className="review-dock-main">
+          <div className="review-title">
+            <strong>Review</strong>
+            <span>Marked files and delete risk</span>
+          </div>
+          <span className="review-pill">{markedCount} marked</span>
+          <span className="review-pill"><strong>{folderCountAfterKeep} / {settings.sessionFolderLimit}</strong> slots after Keep</span>
+          <span className="review-pill"><strong>{formatBytes(leftoverBytes)}</strong> leftovers delete</span>
+          <CommandButton disabled={busy || keepBlocked} command="E" tone="keep" onClick={() => onCommand("keep")}>
+            {armedAction === "keep" ? "Confirm Keep" : "Keep marked"}
+          </CommandButton>
+          <CommandButton disabled={busy || !torrent || activeMissing} command="D" tone="reject" onClick={() => onCommand("reject")}>
+            {armedAction === "reject" ? "Confirm Reject" : "Reject torrent"}
+          </CommandButton>
         </div>
-      ) : null}
-      <div className="candidate-actions">
-        <CommandButton disabled={busy || activeMissing} command="D" tone="primary" onClick={() => onCommand("toggleMark")}>Mark selected</CommandButton>
-        <CommandButton disabled={busy || keepBlocked} command="F" tone="keep" onClick={() => onCommand("keep")}>
-          {armedAction === "keep" ? "Confirm Keep" : "Keep"}
-        </CommandButton>
-        <CommandButton disabled={busy || !torrent} command="R" tone="reject" onClick={() => onCommand("reject")}>
-          {armedAction === "reject" ? "Confirm Reject" : "Reject"}
-        </CommandButton>
-        <span className="action-note">{notice}</span>
+        {showNotice ? <span className="decision-notice">{notice}</span> : null}
+        {activeMissing ? (
+          <div className="vanished-alert" role="status">
+            Selected torrent no longer in qBittorrent. Keep and Reject are disabled until you choose another torrent or refresh.
+          </div>
+        ) : null}
         {armedAction === "keep" ? (
           <div className="confirm keep-confirm open" role="alert">
             <strong>Keep deletes unmarked torrent leftovers.</strong>
             <span className="meta">Marked videos move first; qBittorrent cleanup runs only after move verification.</span>
-            <CommandButton disabled={busy} command="F" tone="keep" onClick={() => onCommand("keep")}>Confirm Keep</CommandButton>
+            <CommandButton disabled={busy} command="E" tone="keep" onClick={() => onCommand("keep")}>Confirm Keep</CommandButton>
             <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> Cancel</Button>
           </div>
         ) : null}
         {armedAction === "reject" ? (
           <div className="confirm open" role="alert">
             <strong>Reject deletes torrent files.</strong>
-            <span className="meta">Press R again or click Confirm Reject to call qBittorrent with deleteFiles=true.</span>
-            <CommandButton disabled={busy} command="R" tone="reject" onClick={() => onCommand("reject")}>Confirm Reject</CommandButton>
+            <span className="meta">Press D again or click Confirm Reject to call qBittorrent with deleteFiles=true.</span>
+            <CommandButton disabled={busy} command="D" tone="reject" onClick={() => onCommand("reject")}>Confirm Reject</CommandButton>
             <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> Cancel</Button>
           </div>
         ) : null}
       </div>
-      <details className="junk-block">
-        <summary>Junk files <span>{torrent?.junkFiles?.length ?? 0}</span></summary>
-        {(torrent?.junkFiles ?? []).map((file) => (
-          <div className="junk-row" key={file.fileIndex}>
-            <span>{file.name}</span>
-            <span>{formatBytes(file.sizeBytes)}</span>
-          </div>
-        ))}
-      </details>
+      <div className="section-head">
+        <span>Candidates</span>
+        <span>largest first</span>
+      </div>
+      <div className="candidate-list">
+        {candidates.map((candidate, index) => {
+          const marked = markedIndexes.includes(candidate.fileIndex);
+          const selected = activeCandidate?.fileIndex === candidate.fileIndex;
+          return (
+            <div
+              className={["candidate-row", selected ? "selected" : "", marked ? "marked" : ""].filter(Boolean).join(" ")}
+              key={candidate.fileIndex}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelectCandidate(index)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onSelectCandidate(index);
+                }
+              }}
+            >
+              <span className="candidate-main">
+                <span className="candidate-name">{candidate.name}</span>
+                <span className="candidate-meta">
+                  <span>{formatBytes(candidate.sizeBytes)}</span>
+                  <span>index {candidate.fileIndex}</span>
+                  <span>{selected ? "previewing" : marked ? "marked" : "unmarked"}</span>
+                </span>
+              </span>
+              <button
+                className="mark-cell"
+                aria-label={marked ? "Unmark candidate" : "Mark candidate"}
+                aria-pressed={marked}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleMark(candidate.fileIndex);
+                }}
+              >
+                {marked ? <CircleCheck size={16} /> : <Circle size={16} />}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {torrent?.junkFiles?.length ? (
+        <details className="non-video-block">
+          <summary>
+            Non-video leftovers
+            <span>{torrent.junkFiles.length} files, {formatBytes(totalJunkSizeBytes(torrent))}</span>
+          </summary>
+        </details>
+      ) : null}
     </section>
   );
+}
+
+function leftoverSizeBytes(torrent: ReviewTorrent, markedIndexes: number[]): number {
+  const marked = new Set(markedIndexes);
+  const unmarkedCandidates = torrent.candidates?.filter((candidate) => !marked.has(candidate.fileIndex)) ?? [];
+  return unmarkedCandidates.reduce((total, candidate) => total + candidate.sizeBytes, 0) + totalJunkSizeBytes(torrent);
+}
+
+function totalJunkSizeBytes(torrent: ReviewTorrent): number {
+  return torrent.junkFiles?.reduce((total, file) => total + file.sizeBytes, 0) ?? 0;
+}
+
+function sortDescription(sort: QueueSort): string {
+  if (sort.field === "name") {
+    return sort.direction === "asc" ? "A to Z" : "Z to A";
+  }
+  if (sort.field === "size") {
+    return sort.direction === "asc" ? "Smallest first" : "Largest first";
+  }
+  return sort.direction === "asc" ? "Oldest API result first" : "Newest API result first";
 }
 
 export function SettingsPanel({
@@ -366,22 +455,28 @@ export function SettingsPanel({
   onSaved: (settings: LocalSettings) => void;
 }) {
   const [values, setValues] = useState<SettingsFormValues>(() => settingsToFormValues(settings));
-  const [pickerBusy, setPickerBusy] = useState<"windowsDownloadRoot" | "sessionFolder" | null>(null);
+  const [pickerBusy, setPickerBusy] = useState<"windowsDownloadRoot" | "wslDownloadRoot" | "sessionFolder" | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   function updateField(field: keyof SettingsFormValues, value: string) {
     setValues((current) => ({ ...current, [field]: value }));
   }
 
-  async function browseFolder(field: "windowsDownloadRoot" | "sessionFolder", title: string) {
+  async function browseFolder(field: "windowsDownloadRoot" | "wslDownloadRoot" | "sessionFolder", title: string) {
     setFormError(null);
     setPickerBusy(field);
     try {
-      const result = await pickFolder({ title, initialPath: values[field] });
+      const initialPath = field === "wslDownloadRoot"
+        ? (wslMountPathToWindowsPath(values.wslDownloadRoot) ?? values.wslDownloadRoot)
+        : values[field];
+      const result = await pickFolder({ title, initialPath });
       if (!result.cancelled && result.path) {
         const selectedPath = result.path;
         setValues((current) => {
-          const next = { ...current, [field]: selectedPath };
+          const nextValue = field === "wslDownloadRoot"
+            ? (windowsPathToWslMountPath(selectedPath) ?? selectedPath)
+            : selectedPath;
+          const next = { ...current, [field]: nextValue };
           const mapped = field === "windowsDownloadRoot" ? windowsPathToWslMountPath(selectedPath) : null;
           return mapped ? { ...next, wslDownloadRoot: mapped } : next;
         });
@@ -418,7 +513,7 @@ export function SettingsPanel({
   }
 
   return (
-    <section className="settings-sheet" aria-label="Settings">
+    <section className="settings-sheet" role="dialog" aria-modal="true" aria-label="Settings">
       <form className="settings-panel" onSubmit={submit}>
         <div className="section-head">
           <span>Settings</span>
@@ -442,7 +537,21 @@ export function SettingsPanel({
             </Button>
           </div>
         </label>
-        <label>WSL downloads root<input name="wslDownloadRoot" value={values.wslDownloadRoot} onChange={(event) => updateField("wslDownloadRoot", event.target.value)} /></label>
+        <label>
+          WSL downloads root
+          <div className="path-input-row">
+            <input name="wslDownloadRoot" value={values.wslDownloadRoot} onChange={(event) => updateField("wslDownloadRoot", event.target.value)} />
+            <Button
+              aria-label="Browse WSL downloads root"
+              className="btn"
+              type="button"
+              disabled={pickerBusy !== null}
+              onClick={() => void browseFolder("wslDownloadRoot", "Choose WSL downloads folder")}
+            >
+              <FolderOpen size={15} /> {pickerBusy === "wslDownloadRoot" ? "Choosing" : "Browse"}
+            </Button>
+          </div>
+        </label>
         <label>
           Session folder
           <div className="path-input-row">
@@ -494,6 +603,16 @@ function windowsPathToWslMountPath(path: string): string | null {
   const drive = match[1].toLowerCase();
   const rest = match[2].replace(/[\\/]+/g, "/").replace(/^\/+/, "");
   return rest ? `/mnt/${drive}/${rest}` : `/mnt/${drive}`;
+}
+
+function wslMountPathToWindowsPath(path: string): string | null {
+  const match = /^\/mnt\/([a-zA-Z])(?:\/(.*))?$/.exec(path.trim());
+  if (!match) {
+    return null;
+  }
+  const drive = match[1].toUpperCase();
+  const rest = (match[2] ?? "").replace(/\/+/g, "\\");
+  return rest ? `${drive}:\\${rest}` : `${drive}:\\`;
 }
 
 function messageFromUnknown(error: unknown): string {
