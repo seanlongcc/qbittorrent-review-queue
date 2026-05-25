@@ -369,7 +369,7 @@ export function CandidateTable({
             <FolderCheck size={15} />
             <span>Confirm</span>
           </CommandButton>
-          <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> Cancel</Button>
+          <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> <span>Cancel</span></Button>
         </div>
       ) : null}
       {armedAction === "reject" ? (
@@ -380,7 +380,7 @@ export function CandidateTable({
             <Trash2 size={15} />
             <span>Confirm</span>
           </CommandButton>
-          <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> Cancel</Button>
+          <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> <span>Cancel</span></Button>
         </div>
       ) : null}
       <div className="section-head">
@@ -534,7 +534,7 @@ export function SettingsPanel({
       <form className="settings-panel" onSubmit={submit}>
         <div className="section-head">
           <span>Settings</span>
-          <Button className="btn" type="button" onClick={onClose}><X size={15} /> Close</Button>
+          <Button className="btn" type="button" onClick={onClose}><X size={15} /> <span>Close</span></Button>
         </div>
         <label>qBittorrent URL<input name="qbtBaseUrl" value={values.qbtBaseUrl} onChange={(event) => updateField("qbtBaseUrl", event.target.value)} /></label>
         <label>Username<input name="qbtUsername" value={values.qbtUsername} onChange={(event) => updateField("qbtUsername", event.target.value)} /></label>
@@ -550,7 +550,7 @@ export function SettingsPanel({
               disabled={pickerBusy !== null}
               onClick={() => void browseFolder("windowsDownloadRoot", "Choose qBittorrent downloads folder")}
             >
-              <FolderOpen size={15} /> {pickerBusy === "windowsDownloadRoot" ? "Choosing" : "Browse"}
+              <FolderOpen size={15} /> <span>{pickerBusy === "windowsDownloadRoot" ? "Choosing" : "Browse"}</span>
             </Button>
           </div>
         </label>
@@ -565,7 +565,7 @@ export function SettingsPanel({
               disabled={pickerBusy !== null}
               onClick={() => void browseFolder("wslDownloadRoot", "Choose WSL downloads folder")}
             >
-              <FolderOpen size={15} /> {pickerBusy === "wslDownloadRoot" ? "Choosing" : "Browse"}
+              <FolderOpen size={15} /> <span>{pickerBusy === "wslDownloadRoot" ? "Choosing" : "Browse"}</span>
             </Button>
           </div>
         </label>
@@ -580,13 +580,13 @@ export function SettingsPanel({
               disabled={pickerBusy !== null}
               onClick={() => void browseFolder("sessionFolder", "Choose review output folder")}
             >
-              <FolderOpen size={15} /> {pickerBusy === "sessionFolder" ? "Choosing" : "Browse"}
+              <FolderOpen size={15} /> <span>{pickerBusy === "sessionFolder" ? "Choosing" : "Browse"}</span>
             </Button>
           </div>
         </label>
         <label>Folder limit<input name="sessionFolderLimit" type="number" min={1} value={values.sessionFolderLimit} onChange={(event) => updateField("sessionFolderLimit", event.target.value)} /></label>
         {formError ? <p className="settings-error" role="alert">{formError}</p> : null}
-        <Button className="btn keep" type="submit" disabled={pickerBusy !== null}><Check size={15} /> Save settings</Button>
+        <Button className="btn keep" type="submit" disabled={pickerBusy !== null}><Check size={15} /> <span>Save settings</span></Button>
       </form>
     </section>
   );

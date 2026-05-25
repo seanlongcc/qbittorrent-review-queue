@@ -230,6 +230,33 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /Beta Torrent/ })).toHaveAttribute("aria-current", "true"));
   });
 
+  it("handles review keybinds before a focused video can consume them", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/queue") {
+          return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/torrents/abc") {
+          return Response.json(torrentDetail("abc", "Done Torrent"));
+        }
+        throw new Error(`unexpected url ${url}`);
+      }),
+    );
+
+    render(<App />);
+
+    const video = (await screen.findByLabelText("Autoplay video preview")) as HTMLVideoElement;
+    video.addEventListener("keydown", (event) => event.stopPropagation());
+    video.focus();
+
+    fireEvent.keyDown(video, { key: "d" });
+
+    expect(await screen.findByText("Delete will remove torrent files with deleteFiles=true.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /D Confirm/ }).length).toBeGreaterThan(0);
+  });
+
   it("selects session folder through the local folder picker", async () => {
     vi.stubGlobal(
       "fetch",

@@ -261,6 +261,7 @@ tr:focus-visible {
   display: inline-flex;
   align-items: center;
   line-height: 1;
+  transform: translateY(-1px);
 }
 
 .icon-btn {
@@ -358,6 +359,7 @@ kbd {
   display: inline-flex;
   align-items: center;
   line-height: 1;
+  transform: translateY(-1px);
 }
 
 .icon-command .command-body {
