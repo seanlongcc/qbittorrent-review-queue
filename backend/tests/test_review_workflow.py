@@ -41,6 +41,43 @@ def test_keep_moves_marked_files_then_deletes_torrent_leftovers(tmp_path):
     assert qbt.deleted == [("abc", True)]
 
 
+def test_keep_retries_destination_verification_before_failing(tmp_path, monkeypatch):
+    source = tmp_path / "downloads" / "main.mkv"
+    source.parent.mkdir()
+    source.write_text("video", encoding="utf-8")
+    destination_folder = tmp_path / "session"
+    destination_folder.mkdir()
+    destination = destination_folder / "main.mkv"
+    qbt = RecordingQbt()
+    original_exists = Path.exists
+    destination_exists_checks = 0
+
+    def delayed_destination_exists(path: Path) -> bool:
+        nonlocal destination_exists_checks
+        if path == destination:
+            destination_exists_checks += 1
+            if destination_exists_checks == 2:
+                return False
+        return original_exists(path)
+
+    monkeypatch.setattr(Path, "exists", delayed_destination_exists)
+
+    result = keep_torrent(
+        KeepRequest(
+            torrent_hash="abc",
+            marked_files=[source],
+            session_folder=destination_folder,
+            existing_count=0,
+            session_limit=40,
+        ),
+        qbt,
+    )
+
+    assert result["moved"] == [str(destination)]
+    assert destination.exists()
+    assert qbt.deleted == [("abc", True)]
+
+
 def test_keep_does_not_delete_torrent_when_move_fails(tmp_path):
     qbt = RecordingQbt()
 
@@ -89,4 +126,3 @@ def test_reject_requires_confirmation_before_delete_files_true():
     reject_torrent("abc", qbt, confirmed=True)
 
     assert qbt.deleted == [("abc", True)]
-

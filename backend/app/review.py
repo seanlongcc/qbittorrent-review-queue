@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -43,6 +44,15 @@ def _destination_for(source: Path, session_folder: Path) -> Path:
         counter += 1
 
 
+def _moved_file_verified(destination: Path, *, attempts: int = 5, delay_seconds: float = 0.05) -> bool:
+    for attempt in range(attempts):
+        if destination.exists() and destination.is_file():
+            return True
+        if attempt < attempts - 1:
+            time.sleep(delay_seconds)
+    return False
+
+
 def keep_torrent(request: KeepRequest, qbt: TorrentDeleter) -> dict[str, list[str]]:
     if not request.marked_files:
         raise ReviewWorkflowError("No marked files to keep")
@@ -57,8 +67,8 @@ def keep_torrent(request: KeepRequest, qbt: TorrentDeleter) -> dict[str, list[st
             raise ReviewWorkflowError(f"Marked file is missing: {source}")
         destination = _destination_for(source, request.session_folder)
         shutil.move(str(source), str(destination))
-        if not destination.exists():
-            raise ReviewWorkflowError(f"Moved file was not verified: {destination}")
+        if not _moved_file_verified(destination):
+            raise ReviewWorkflowError(f"Moved file verification failed: {destination}")
         moved.append(destination)
 
     try:

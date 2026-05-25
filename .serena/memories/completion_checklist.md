@@ -1,0 +1,2 @@
+# Completion Checklist
+Before claiming completion, run narrow relevant verification and read output. For frontend behavior changes, run focused Vitest tests plus `npm run typecheck` or `npm run build` when practical. For backend behavior changes, run focused pytest tests. For layout/interaction changes, run the local app and browser/mobile verification when possible, or report the blocker. Check `git status --short --branch`. Close completed bead(s) with a reason. Summarize changed files and any skipped verification.

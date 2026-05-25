@@ -16,6 +16,8 @@ import {
   SkipBack,
   SkipForward,
   Trash2,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { pickFolder, updateSettings } from "@/api/client";
@@ -25,13 +27,6 @@ import { formatBytes } from "./format";
 import type { ReviewCommand } from "./keyboard";
 import { sortDescription, type QueueSort, type QueueSortField } from "./queueSort";
 import type { ReviewToast } from "./reviewState";
-
-const suppressedReviewNotices = new Set([
-  "Queue ready.",
-  "Loading qBittorrent queue.",
-  "Refreshing qBittorrent queue.",
-  "No completed torrents are ready.",
-]);
 
 export function TitleBar({
   settings,
@@ -180,12 +175,16 @@ export function MediaStage({
   candidate,
   loading,
   busy = false,
+  muted = false,
+  onToggleMuted,
   onOpenExternal,
 }: {
   torrent: ReviewTorrent | null;
   candidate: VideoCandidate | null;
   loading: boolean;
   busy?: boolean;
+  muted?: boolean;
+  onToggleMuted?: () => void;
   onOpenExternal?: () => void;
 }) {
   const mediaSrc = torrent && candidate ? `/media/${torrent.hash}/${candidate.fileIndex}` : "";
@@ -201,6 +200,19 @@ export function MediaStage({
           <strong>{candidate?.name ?? torrent?.name ?? "No torrent selected"}</strong>
           <p className="path">{candidate?.path ?? torrent?.savePath ?? "Queue empty or disconnected."}</p>
         </div>
+        {onToggleMuted ? (
+          <Button
+            aria-label={muted ? "Unmute preview audio" : "Mute preview audio"}
+            aria-pressed={muted}
+            className="btn icon-btn"
+            disabled={busy || !candidate?.playable}
+            title={muted ? "Unmute preview audio" : "Mute preview audio"}
+            type="button"
+            onClick={onToggleMuted}
+          >
+            {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </Button>
+        ) : null}
         {onOpenExternal ? (
           <CommandButton
             aria-label="Open external, T"
@@ -221,6 +233,7 @@ export function MediaStage({
             autoPlay
             className="preview-video"
             controls
+            muted={muted}
             playsInline
             preload="auto"
             ref={videoRef}
@@ -242,7 +255,7 @@ export function MediaStage({
 
 export function ReviewCommandBar({
   markedCount,
-  folderCountAfterKeep,
+  folderCount,
   folderLimit,
   armedAction,
   busy,
@@ -252,7 +265,7 @@ export function ReviewCommandBar({
   onCommand,
 }: {
   markedCount: number;
-  folderCountAfterKeep: number;
+  folderCount: number;
   folderLimit: number;
   armedAction: "keep" | "reject" | null;
   busy: boolean;
@@ -261,6 +274,8 @@ export function ReviewCommandBar({
   hasTorrent: boolean;
   onCommand: (command: ReviewCommand) => void;
 }) {
+  const slotsLeft = Math.max(folderLimit - folderCount, 0);
+
   return (
     <div className="candidate-tabs" aria-label="Review commands">
       <div className="candidate-nav">
@@ -302,9 +317,9 @@ export function ReviewCommandBar({
         </CommandButton>
       </div>
       <div className="candidate-actions">
-        <span className="slot-pill" title="Session folder count after Keep">
-          <strong>{folderCountAfterKeep} / {folderLimit}</strong>
-          <span>slots</span>
+        <span className="slot-pill" title="Session folder slots left">
+          <strong>{slotsLeft}</strong>
+          <span>slots left</span>
         </span>
         <span className="slot-pill">
           <strong>{markedCount}</strong>
@@ -320,7 +335,7 @@ export function ReviewCommandBar({
         </CommandButton>
         <CommandButton disabled={busy || !hasTorrent || activeMissing} command="D" tone="reject" onClick={() => onCommand("reject")}>
           <Trash2 size={15} />
-          <span>{armedAction === "reject" ? "Confirm" : "Reject"}</span>
+          <span>{armedAction === "reject" ? "Confirm" : "Delete"}</span>
         </CommandButton>
       </div>
     </div>
@@ -334,7 +349,6 @@ export function CandidateTable({
   armedAction,
   busy,
   activeMissing,
-  notice,
   onSelectCandidate,
   onToggleMark,
   onCommand,
@@ -345,20 +359,17 @@ export function CandidateTable({
   armedAction: "keep" | "reject" | null;
   busy: boolean;
   activeMissing: boolean;
-  notice: string;
   onSelectCandidate: (index: number) => void;
   onToggleMark: (fileIndex: number) => void;
   onCommand: (command: ReviewCommand) => void;
 }) {
   const candidates = torrent?.candidates ?? [];
-  const showNotice = Boolean(notice && !suppressedReviewNotices.has(notice));
 
   return (
     <section aria-label="Video candidates" className="candidate-section">
-      {showNotice ? <span className="decision-notice">{notice}</span> : null}
       {activeMissing ? (
         <div className="vanished-alert" role="status">
-          Selected torrent no longer in qBittorrent. Keep and Reject are disabled until you choose another torrent or refresh.
+          Selected torrent no longer in qBittorrent. Keep and Delete are disabled until you choose another torrent or refresh.
         </div>
       ) : null}
       {armedAction === "keep" ? (
@@ -374,8 +385,8 @@ export function CandidateTable({
       ) : null}
       {armedAction === "reject" ? (
         <div className="confirm open" role="alert">
-          <strong>Reject deletes torrent files.</strong>
-          <span className="meta">Press D again or click Confirm to call qBittorrent with deleteFiles=true.</span>
+          <strong>Delete removes torrent files</strong>
+          <span className="meta">Press D again or click Confirm to call qBittorrent with deleteFiles=true</span>
           <CommandButton disabled={busy} command="D" tone="reject" onClick={() => onCommand("reject")}>
             <Trash2 size={15} />
             <span>Confirm</span>

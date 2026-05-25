@@ -1,0 +1,4 @@
+# Project Overview
+Local qBittorrent Review Queue is a local FastAPI + Vite React app for reviewing completed qBittorrent torrents. It lists completed torrents, identifies video candidates, previews or opens selected videos, moves marked candidates into a session folder on Keep, and deletes rejected torrents only after explicit confirmation. Credentials and settings remain local; no cloud persistence or deployment should be added unless explicitly requested.
+
+Core product constraints: Keep moves marked files before qBittorrent cleanup and never deletes kept files after a successful move. Reject/Delete is destructive and must be explicit. Session folders have a 40-video capacity and Keep must block when full. Windows/WSL path mapping must be deliberate and tested.

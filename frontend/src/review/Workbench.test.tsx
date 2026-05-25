@@ -41,6 +41,45 @@ describe("MediaStage", () => {
     expect(video).toHaveAttribute("src", "/media/abc/7");
   });
 
+  it("toggles global preview mute from the control before Open External", () => {
+    const onToggleMuted = vi.fn();
+
+    render(
+      <MediaStage
+        loading={false}
+        muted
+        onToggleMuted={onToggleMuted}
+        onOpenExternal={() => undefined}
+        torrent={{
+          hash: "abc",
+          name: "Done Torrent",
+          status: "completed",
+          progress: 1,
+          totalSizeBytes: 1200,
+          savePath: "C:\\Downloads\\Done Torrent",
+        }}
+        candidate={{
+          fileIndex: 7,
+          name: "main.mp4",
+          extension: "mp4",
+          sizeBytes: 1000,
+          path: "/mnt/c/Downloads/Done Torrent/main.mp4",
+          playable: true,
+        }}
+      />,
+    );
+
+    const buttons = screen.getAllByRole("button");
+    const labels = buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent);
+
+    expect((screen.getByLabelText("Autoplay video preview") as HTMLVideoElement).muted).toBe(true);
+    expect(labels.indexOf("Unmute preview audio")).toBeLessThan(labels.indexOf("Open external, T"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Unmute preview audio" }));
+
+    expect(onToggleMuted).toHaveBeenCalledTimes(1);
+  });
+
   it("renders the empty stage without instructional placeholder text", () => {
     render(<MediaStage loading={false} torrent={null} candidate={null} />);
 
@@ -87,7 +126,7 @@ describe("ReviewCommandBar", () => {
     render(
       <ReviewCommandBar
         markedCount={1}
-        folderCountAfterKeep={17}
+        folderCount={16}
         folderLimit={40}
         armedAction={null}
         busy={false}
@@ -105,11 +144,12 @@ describe("ReviewCommandBar", () => {
       "A",
       "FMark",
       "EKeep",
-      "DReject",
+      "DDelete",
     ]);
     expect(screen.getByRole("button", { name: "Previous torrent, Q" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next torrent, A" })).toBeInTheDocument();
-    expect(screen.getByText("17 / 40")).toBeInTheDocument();
+    expect(screen.getByText("24")).toBeInTheDocument();
+    expect(screen.getByText("slots left")).toBeInTheDocument();
   });
 });
 

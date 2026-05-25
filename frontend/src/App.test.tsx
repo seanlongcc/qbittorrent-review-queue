@@ -74,9 +74,9 @@ describe("App", () => {
     expect(screen.getByLabelText("Review commands")).toBeInTheDocument();
     expect(screen.getByLabelText("Video candidates")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /E Keep/ }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /D Reject/ }).length).toBeGreaterThan(0);
-    expect(screen.getByText("17 / 40")).toBeInTheDocument();
-    expect(screen.getByText("slots")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /D Delete/ }).length).toBeGreaterThan(0);
+    expect(screen.getByText("24")).toBeInTheDocument();
+    expect(screen.getByText("slots left")).toBeInTheDocument();
     expect(screen.queryByText(/completed torrents/)).not.toBeInTheDocument();
     expect(screen.queryByText("details pending")).not.toBeInTheDocument();
     expect(screen.queryByText("Marked files and delete risk")).not.toBeInTheDocument();
@@ -89,6 +89,35 @@ describe("App", () => {
     await waitFor(() => {
       expect(screen.getAllByText("main.mp4").length).toBeGreaterThan(0);
     });
+  });
+
+  it("selects the top torrent under the default newest-added sort", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/queue") {
+          return Response.json({
+            ...queueResponse("old", "Older Torrent"),
+            torrents: [
+              queueTorrent("old", "Older Torrent", 100),
+              queueTorrent("new", "Newer Torrent", 200),
+            ],
+          });
+        }
+        if (url === "/api/torrents/old") {
+          return Response.json(torrentDetail("old", "Older Torrent"));
+        }
+        if (url === "/api/torrents/new") {
+          return Response.json(torrentDetail("new", "Newer Torrent"));
+        }
+        throw new Error(`unexpected url ${url}`);
+      }),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: /Newer Torrent/ })).toHaveAttribute("aria-current", "true");
   });
 
   it("auto-polls the queue every 1 minute when visible", async () => {
@@ -151,7 +180,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh queue" }));
 
     await waitFor(() => expect(queueCalls).toBe(2));
-    expect(await screen.findByText("Queue refreshed.")).toBeInTheDocument();
+    expect(await screen.findByText("Queue refreshed")).toBeInTheDocument();
+    expect(screen.queryByText("Queue refreshed.")).not.toBeInTheDocument();
   });
 
   it("refreshes the queue immediately after settings save", async () => {
@@ -182,7 +212,54 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /Save settings/ }));
 
     await waitFor(() => expect(queueCalls).toBe(2));
-    expect(await screen.findByText("Settings saved.")).toBeInTheDocument();
+    expect(await screen.findByText("Settings saved")).toBeInTheDocument();
+  });
+
+  it("updates slots left after Keep with the refreshed folder count", async () => {
+    let kept = false;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/queue") {
+        return Response.json({
+          ...queueResponse("abc", "Alpha Torrent"),
+          torrents: kept
+            ? [queueTorrent("def", "Beta Torrent", 200)]
+            : [queueTorrent("abc", "Alpha Torrent", 300), queueTorrent("def", "Beta Torrent", 200)],
+          settings: {
+            ...queueResponse("abc", "Alpha Torrent").settings,
+            folderCount: kept ? 17 : 16,
+          },
+        });
+      }
+      if (url === "/api/torrents/abc") {
+        return Response.json(torrentDetail("abc", "Alpha Torrent"));
+      }
+      if (url === "/api/torrents/def") {
+        return Response.json(torrentDetail("def", "Beta Torrent"));
+      }
+      if (url === "/api/torrents/abc/keep" && init?.method === "POST") {
+        kept = true;
+        return Response.json({ moved: ["/mnt/c/Review/main.mp4"] });
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect((await screen.findAllByText("main.mp4")).length).toBeGreaterThan(0);
+    expect(screen.getByText("24")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: /E Keep/ })[0]);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/torrents/abc/keep",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    await waitFor(() => expect(screen.getByText("23")).toBeInTheDocument());
+    expect(screen.getByText("slots left")).toBeInTheDocument();
   });
 
   it("deletes the active torrent, advances to the next sorted torrent, and shows a toast", async () => {
@@ -214,7 +291,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("button", { name: /Alpha Torrent/ })).toHaveAttribute("aria-current", "true");
-    fireEvent.click(screen.getAllByRole("button", { name: /D Reject/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /D Delete/ })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: /D Confirm/ })[0]);
 
     await waitFor(() =>
@@ -226,8 +303,42 @@ describe("App", () => {
         }),
       ),
     );
-    expect(await screen.findByText("Deleted torrent and files.")).toBeInTheDocument();
+    expect(await screen.findByText("Deleted torrent and files")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: /Beta Torrent/ })).toHaveAttribute("aria-current", "true"));
+  });
+
+  it("uses a toast, not the action status section, after opening externally", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/queue") {
+        return Response.json(queueResponse("abc", "Done Torrent"));
+      }
+      if (url === "/api/torrents/abc") {
+        return Response.json(torrentDetail("abc", "Done Torrent"));
+      }
+      if (url === "/api/torrents/abc/open" && init?.method === "POST") {
+        return Response.json({ ok: true });
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(<App />);
+
+    expect(await screen.findByLabelText("Autoplay video preview")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Open external/ }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/torrents/abc/open",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(await screen.findByText("Opened main.mp4")).toBeInTheDocument();
+    expect(screen.queryByText("Opened main.mp4.")).not.toBeInTheDocument();
+    expect(container.querySelector(".decision-notice")).toBeNull();
   });
 
   it("handles review keybinds before a focused video can consume them", async () => {
@@ -253,7 +364,7 @@ describe("App", () => {
 
     fireEvent.keyDown(video, { key: "d" });
 
-    expect(await screen.findByText("Delete will remove torrent files with deleteFiles=true.")).toBeInTheDocument();
+    expect(await screen.findByText("Delete removes torrent files")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /D Confirm/ }).length).toBeGreaterThan(0);
   });
 

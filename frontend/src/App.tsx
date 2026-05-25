@@ -29,6 +29,7 @@ import {
 export function App() {
   const [state, dispatch] = useReducer(reviewReducer, undefined, () => createInitialState());
   const [queueSort, setQueueSort] = useState<QueueSort>({ field: "added", direction: "desc" });
+  const [previewMuted, setPreviewMuted] = useState(false);
   const reviewableTorrents = getReviewableTorrents(state);
   const sortedReviewableTorrents = useMemo(
     () => sortReviewableTorrents(reviewableTorrents, queueSort),
@@ -41,7 +42,7 @@ export function App() {
   const activeMissing = isActiveTorrentMissing(state);
 
   const refreshQueue = useCallback(async (options: { toast?: boolean } = {}): Promise<QueueResponse | null> => {
-    dispatch({ type: "queueLoading", toast: options.toast ? "Refreshing qBittorrent queue." : undefined });
+    dispatch({ type: "queueLoading", toast: options.toast ? "Refreshing qBittorrent queue" : undefined });
     try {
       const response = await getQueue();
       dispatch({
@@ -60,6 +61,13 @@ export function App() {
   useEffect(() => {
     void refreshQueue();
   }, [refreshQueue]);
+
+  useEffect(() => {
+    const topTorrent = sortedReviewableTorrents[0];
+    if (!state.activeTorrentHash && topTorrent) {
+      dispatch({ type: "selectTorrent", hash: topTorrent.hash });
+    }
+  }, [sortedReviewableTorrents, state.activeTorrentHash]);
 
   useEffect(() => {
     if (!state.settings.connected) {
@@ -116,14 +124,15 @@ export function App() {
       dispatch({ type: "keep" });
       return;
     }
-    dispatch({ type: "actionStarted", label: "Keeping marked files." });
+    dispatch({ type: "actionStarted", label: "Keeping marked files" });
     try {
       const nextHash = nextSortedTorrentHash(sortedReviewableTorrents, torrent.hash, 1);
-      await keepTorrent(torrent.hash, {
+      const result = await keepTorrent(torrent.hash, {
         fileIndexes: marked.map((candidate) => candidate.fileIndex),
         confirmed: confirmationNeeded,
       });
-      dispatch({ type: "actionFinished", notice: `Kept ${marked.length} video${marked.length === 1 ? "" : "s"}.` });
+      dispatch({ type: "folderCountIncremented", count: result.moved.length });
+      dispatch({ type: "actionFinished", notice: `Kept ${marked.length} video${marked.length === 1 ? "" : "s"}` });
       dispatch({ type: "torrentRemoved", hash: torrent.hash, nextHash });
       await refreshQueue();
     } catch (error) {
@@ -144,11 +153,11 @@ export function App() {
       dispatch({ type: "reject" });
       return;
     }
-    dispatch({ type: "actionStarted", label: "Deleting torrent with deleteFiles=true." });
+    dispatch({ type: "actionStarted", label: "Deleting torrent with deleteFiles=true" });
     try {
       const nextHash = nextSortedTorrentHash(sortedReviewableTorrents, torrent.hash, 1);
       await rejectTorrent(torrent.hash, { confirmed: true });
-      dispatch({ type: "actionFinished", notice: "Deleted torrent and files." });
+      dispatch({ type: "actionFinished", notice: "Deleted torrent and files" });
       dispatch({ type: "torrentRemoved", hash: torrent.hash, nextHash });
       await refreshQueue();
     } catch (error) {
@@ -160,17 +169,17 @@ export function App() {
     const torrent = getActiveTorrent(state);
     const candidate = getActiveCandidate(state);
     if (isActiveTorrentMissing(state)) {
-      dispatch({ type: "actionFailed", message: "Selected torrent no longer in qBittorrent. Choose Next or Refresh." });
+      dispatch({ type: "actionFailed", message: "Selected torrent no longer in qBittorrent. Choose Next or Refresh" });
       return;
     }
     if (!torrent || !candidate) {
       dispatch({ type: "openExternal" });
       return;
     }
-    dispatch({ type: "actionStarted", label: `Opening ${candidate.name}.` });
+    dispatch({ type: "actionStarted", label: `Opening ${candidate.name}` });
     try {
       await openTorrentFile(torrent.hash, candidate.fileIndex);
-      dispatch({ type: "actionFinished", notice: `Opened ${candidate.name}.` });
+      dispatch({ type: "actionFinished", notice: `Opened ${candidate.name}` });
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
@@ -255,11 +264,13 @@ export function App() {
               candidate={activeCandidate}
               loading={state.loadingDetail}
               busy={state.actionBusy}
+              muted={previewMuted}
+              onToggleMuted={() => setPreviewMuted((muted) => !muted)}
               onOpenExternal={() => handleCommand("openExternal")}
             />
             <ReviewCommandBar
               markedCount={markedIndexes.length}
-              folderCountAfterKeep={state.settings.folderCount + markedIndexes.length}
+              folderCount={state.settings.folderCount}
               folderLimit={state.settings.sessionFolderLimit}
               armedAction={state.armedAction}
               busy={state.actionBusy}
@@ -275,7 +286,6 @@ export function App() {
               armedAction={state.armedAction}
               busy={state.actionBusy}
               activeMissing={activeMissing}
-              notice={state.notice}
               onSelectCandidate={(index) => dispatch({ type: "selectCandidate", index })}
               onToggleMark={(fileIndex) => dispatch({ type: "toggleMark", fileIndex })}
               onCommand={handleCommand}

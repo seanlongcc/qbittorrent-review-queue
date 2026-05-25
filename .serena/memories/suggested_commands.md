@@ -1,0 +1,12 @@
+# Suggested Commands
+- `npm run dev`: start FastAPI backend on 127.0.0.1:8000 and Vite frontend on 0.0.0.0:5500
+- `npm run dev:backend`: start backend only
+- `npm run dev:frontend`: start frontend only
+- `npm run test`: run frontend Vitest suite
+- `npm run typecheck`: run frontend TypeScript checks
+- `npm run build`: run frontend typecheck and Vite build
+- `.venv/bin/python -m pytest`: run backend pytest suite
+- `bd prime`: load bead workflow context
+- `bd search <query>` / `bd create ...` / `bd update <id> --claim` / `bd close <id> --reason="Completed"`: issue workflow
+- `rg <pattern>` and `rg --files`: preferred search commands
+- `git status --short --branch`: check worktree before completion
