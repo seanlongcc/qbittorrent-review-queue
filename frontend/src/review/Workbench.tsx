@@ -325,7 +325,6 @@ export function CandidateTable({
       </div>
       <div className="section-head">
         <span>Candidates</span>
-        <span>largest first</span>
       </div>
       <div className="candidate-list">
         {candidates.map((candidate, index) => {
@@ -361,7 +360,6 @@ export function CandidateTable({
                 <span className="candidate-name">{candidate.name}</span>
                 <span className="candidate-meta">
                   <span>{formatBytes(candidate.sizeBytes)}</span>
-                  <span>index {candidate.fileIndex}</span>
                   <span>{selected ? "previewing" : marked ? "marked" : "unmarked"}</span>
                 </span>
               </span>
