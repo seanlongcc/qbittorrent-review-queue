@@ -75,8 +75,8 @@ describe("App", () => {
     expect(screen.getByLabelText("Video candidates")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /E Keep/ }).length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /D Delete/ }).length).toBeGreaterThan(0);
-    expect(screen.getByText("24")).toBeInTheDocument();
-    expect(screen.getByText("slots left")).toBeInTheDocument();
+    expect(screen.getByText("16 / 40")).toBeInTheDocument();
+    expect(screen.getByText("in use")).toBeInTheDocument();
     expect(screen.queryByText(/completed torrents/)).not.toBeInTheDocument();
     expect(screen.queryByText("details pending")).not.toBeInTheDocument();
     expect(screen.queryByText("Marked files and delete risk")).not.toBeInTheDocument();
@@ -215,7 +215,7 @@ describe("App", () => {
     expect(await screen.findByText("Settings saved")).toBeInTheDocument();
   });
 
-  it("updates slots left after Keep with the refreshed folder count", async () => {
+  it("updates slots in use after Keep with the refreshed folder count", async () => {
     let kept = false;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -248,7 +248,7 @@ describe("App", () => {
     render(<App />);
 
     expect((await screen.findAllByText("main.mp4")).length).toBeGreaterThan(0);
-    expect(screen.getByText("24")).toBeInTheDocument();
+    expect(screen.getByText("16 / 40")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: /E Keep/ })[0]);
 
@@ -258,8 +258,8 @@ describe("App", () => {
         expect.objectContaining({ method: "POST" }),
       ),
     );
-    await waitFor(() => expect(screen.getByText("23")).toBeInTheDocument());
-    expect(screen.getByText("slots left")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("17 / 40")).toBeInTheDocument());
+    expect(screen.getByText("in use")).toBeInTheDocument();
   });
 
   it("deletes the active torrent, advances to the next sorted torrent, and shows a toast", async () => {

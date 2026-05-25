@@ -196,35 +196,37 @@ export function MediaStage({
   return (
     <section aria-label="Media preview" className="preview-section">
       <div className="preview-head">
-        <div>
+        <div className="preview-title">
           <strong>{candidate?.name ?? torrent?.name ?? "No torrent selected"}</strong>
           <p className="path">{candidate?.path ?? torrent?.savePath ?? "Queue empty or disconnected."}</p>
         </div>
-        {onToggleMuted ? (
-          <Button
-            aria-label={muted ? "Unmute preview audio" : "Mute preview audio"}
-            aria-pressed={muted}
-            className="btn icon-btn"
-            disabled={busy || !candidate?.playable}
-            title={muted ? "Unmute preview audio" : "Mute preview audio"}
-            type="button"
-            onClick={onToggleMuted}
-          >
-            {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-          </Button>
-        ) : null}
-        {onOpenExternal ? (
-          <CommandButton
-            aria-label="Open external, T"
-            className="icon-command"
-            disabled={busy || !candidate}
-            command="T"
-            title="Open external"
-            onClick={openExternal}
-          >
-            <ExternalLink size={15} />
-          </CommandButton>
-        ) : null}
+        <div className="preview-actions">
+          {onToggleMuted ? (
+            <Button
+              aria-label={muted ? "Unmute preview audio" : "Mute preview audio"}
+              aria-pressed={muted}
+              className="btn icon-btn"
+              disabled={busy || !candidate?.playable}
+              title={muted ? "Unmute preview audio" : "Mute preview audio"}
+              type="button"
+              onClick={onToggleMuted}
+            >
+              {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            </Button>
+          ) : null}
+          {onOpenExternal ? (
+            <CommandButton
+              aria-label="Open external, T"
+              className="icon-command"
+              disabled={busy || !candidate}
+              command="T"
+              title="Open external"
+              onClick={openExternal}
+            >
+              <ExternalLink size={15} />
+            </CommandButton>
+          ) : null}
+        </div>
       </div>
       <div className="preview">
         {candidate?.playable ? (
@@ -274,8 +276,6 @@ export function ReviewCommandBar({
   hasTorrent: boolean;
   onCommand: (command: ReviewCommand) => void;
 }) {
-  const slotsLeft = Math.max(folderLimit - folderCount, 0);
-
   return (
     <div className="candidate-tabs" aria-label="Review commands">
       <div className="candidate-nav">
@@ -317,9 +317,9 @@ export function ReviewCommandBar({
         </CommandButton>
       </div>
       <div className="candidate-actions">
-        <span className="slot-pill" title="Session folder slots left">
-          <strong>{slotsLeft}</strong>
-          <span>slots left</span>
+        <span className="slot-pill" title="Session folder slots in use">
+          <strong>{folderCount} / {folderLimit}</strong>
+          <span>in use</span>
         </span>
         <span className="slot-pill">
           <strong>{markedCount}</strong>

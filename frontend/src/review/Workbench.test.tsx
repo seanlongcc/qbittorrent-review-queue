@@ -74,6 +74,9 @@ describe("MediaStage", () => {
 
     expect((screen.getByLabelText("Autoplay video preview") as HTMLVideoElement).muted).toBe(true);
     expect(labels.indexOf("Unmute preview audio")).toBeLessThan(labels.indexOf("Open external, T"));
+    expect(screen.getByRole("button", { name: "Unmute preview audio" }).parentElement).toHaveClass("preview-actions");
+    expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).toHaveClass("preview-actions");
+    expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).not.toHaveClass("preview-title");
 
     fireEvent.click(screen.getByRole("button", { name: "Unmute preview audio" }));
 
@@ -148,8 +151,8 @@ describe("ReviewCommandBar", () => {
     ]);
     expect(screen.getByRole("button", { name: "Previous torrent, Q" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next torrent, A" })).toBeInTheDocument();
-    expect(screen.getByText("24")).toBeInTheDocument();
-    expect(screen.getByText("slots left")).toBeInTheDocument();
+    expect(screen.getByText("16 / 40")).toBeInTheDocument();
+    expect(screen.getByText("in use")).toBeInTheDocument();
   });
 });
 

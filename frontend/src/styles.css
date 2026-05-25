@@ -663,8 +663,17 @@ tr.selected {
   background: oklch(18.6% 0.012 248);
 }
 
-.preview-head > div {
+.preview-title {
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+.preview-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .preview {
@@ -1159,6 +1168,10 @@ tr.marked td:first-child {
   .preview-head {
     display: grid;
     align-items: start;
+  }
+
+  .preview-actions {
+    justify-self: end;
   }
 
   .preview-head .meta {
