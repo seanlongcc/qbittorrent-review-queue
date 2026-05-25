@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import {
-  cleanupRetryTorrent,
-  getQueue,
-  getTorrentDetail,
-  keepTorrent,
-  openTorrentFile,
-  rejectTorrent,
-} from "./api/client";
+import { getQueue, getTorrentDetail, keepTorrent, openTorrentFile, rejectTorrent } from "./api/client";
+import type { QueueResponse } from "./domain/types";
 import {
   CandidateTable,
   CandidateTabs,
@@ -14,10 +8,11 @@ import {
   QueueSidebar,
   SettingsPanel,
   TitleBar,
-  type QueueSort,
+  ToastViewport,
 } from "./review/Workbench";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { commandFromKey, type ReviewCommand } from "./review/keyboard";
+import { sortReviewableTorrents, type QueueSort } from "./review/queueSort";
 import {
   createInitialState,
   getActiveCandidate,
@@ -47,8 +42,8 @@ export function App() {
   const markedIndexes = getMarkedCandidateIndexes(state);
   const activeMissing = isActiveTorrentMissing(state);
 
-  const refreshQueue = useCallback(async () => {
-    dispatch({ type: "queueLoading" });
+  const refreshQueue = useCallback(async (options: { toast?: boolean } = {}): Promise<QueueResponse | null> => {
+    dispatch({ type: "queueLoading", toast: options.toast ? "Refreshing qBittorrent queue." : undefined });
     try {
       const response = await getQueue();
       dispatch({
@@ -57,8 +52,10 @@ export function App() {
         attentionTorrents: response.attentionTorrents,
         settings: response.settings,
       });
+      return response;
     } catch (error) {
       dispatch({ type: "queueFailed", message: errorMessage(error) });
+      return null;
     }
   }, []);
 
@@ -123,16 +120,18 @@ export function App() {
     }
     dispatch({ type: "actionStarted", label: "Keeping marked files." });
     try {
+      const nextHash = nextSortedTorrentHash(sortedReviewableTorrents, torrent.hash, 1);
       await keepTorrent(torrent.hash, {
         fileIndexes: marked.map((candidate) => candidate.fileIndex),
         confirmed: confirmationNeeded,
       });
       dispatch({ type: "actionFinished", notice: `Kept ${marked.length} video${marked.length === 1 ? "" : "s"}.` });
+      dispatch({ type: "torrentRemoved", hash: torrent.hash, nextHash });
       await refreshQueue();
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
-  }, [refreshQueue, state]);
+  }, [refreshQueue, sortedReviewableTorrents, state]);
 
   const runReject = useCallback(async () => {
     const torrent = getActiveTorrent(state);
@@ -147,15 +146,17 @@ export function App() {
       dispatch({ type: "reject" });
       return;
     }
-    dispatch({ type: "actionStarted", label: "Rejecting torrent with deleteFiles=true." });
+    dispatch({ type: "actionStarted", label: "Deleting torrent with deleteFiles=true." });
     try {
+      const nextHash = nextSortedTorrentHash(sortedReviewableTorrents, torrent.hash, 1);
       await rejectTorrent(torrent.hash, { confirmed: true });
-      dispatch({ type: "actionFinished", notice: "Rejected torrent and files." });
+      dispatch({ type: "actionFinished", notice: "Deleted torrent and files." });
+      dispatch({ type: "torrentRemoved", hash: torrent.hash, nextHash });
       await refreshQueue();
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
-  }, [refreshQueue, state]);
+  }, [refreshQueue, sortedReviewableTorrents, state]);
 
   const runOpenExternal = useCallback(async () => {
     const torrent = getActiveTorrent(state);
@@ -176,20 +177,6 @@ export function App() {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
   }, [state]);
-
-  const runCleanupRetry = useCallback(
-    async (hash: string) => {
-      dispatch({ type: "actionStarted", label: "Retrying qBittorrent cleanup." });
-      try {
-        await cleanupRetryTorrent(hash, { confirmed: true });
-        dispatch({ type: "actionFinished", notice: "Cleanup retry completed." });
-        await refreshQueue();
-      } catch (error) {
-        dispatch({ type: "actionFailed", message: errorMessage(error) });
-      }
-    },
-    [refreshQueue],
-  );
 
   const handleCommand = useCallback(
     (command: ReviewCommand) => {
@@ -262,8 +249,7 @@ export function App() {
             loading={state.loadingQueue}
             sort={queueSort}
             onSelect={(hash) => dispatch({ type: "selectTorrent", hash })}
-            onCleanupRetry={(hash) => void runCleanupRetry(hash)}
-            onRefresh={() => void refreshQueue()}
+            onRefresh={() => void refreshQueue({ toast: true })}
             onSortChange={setQueueSort}
           />
           <section className="qbt-center">
@@ -301,6 +287,7 @@ export function App() {
             }}
           />
         ) : null}
+        <ToastViewport toast={state.toast} onDismiss={() => dispatch({ type: "toastDismissed" })} />
       </main>
     </TooltipProvider>
   );
@@ -308,24 +295,6 @@ export function App() {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Unknown error";
-}
-
-function sortReviewableTorrents(torrents: ReturnType<typeof getReviewableTorrents>, sort: QueueSort) {
-  const direction = sort.direction === "asc" ? 1 : -1;
-  return torrents
-    .map((torrent, index) => ({ torrent, index }))
-    .sort((left, right) => {
-      if (sort.field === "name") {
-        const compared = left.torrent.name.localeCompare(right.torrent.name, undefined, { sensitivity: "base" });
-        return compared === 0 ? left.index - right.index : compared * direction;
-      }
-      if (sort.field === "size") {
-        const compared = left.torrent.totalSizeBytes - right.torrent.totalSizeBytes;
-        return compared === 0 ? left.index - right.index : compared * direction;
-      }
-      return (left.index - right.index) * direction;
-    })
-    .map(({ torrent }) => torrent);
 }
 
 function nextSortedTorrentHash(

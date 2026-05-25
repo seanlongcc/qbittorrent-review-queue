@@ -4,7 +4,7 @@ from pathlib import Path
 
 from backend.app.config import AppSettings
 from backend.app.paths import map_windows_to_wsl, resolve_file_path
-from backend.app.torrents import build_torrent_detail, split_video_candidates
+from backend.app.torrents import build_torrent_detail, queue_item, split_video_candidates
 
 
 def test_windows_download_path_maps_to_wsl_root():
@@ -32,6 +32,21 @@ def test_video_candidates_filter_by_extension_and_sort_largest_first():
     assert junk == [{"fileIndex": 2, "name": "readme.txt", "sizeBytes": 1}]
 
 
+def test_queue_item_exposes_qbittorrent_added_on_epoch():
+    item = queue_item(
+        {
+            "hash": "abc",
+            "name": "New Torrent",
+            "progress": 1,
+            "size": 1000,
+            "save_path": "C:\\Downloads\\New Torrent",
+            "added_on": 1_779_388_620,
+        }
+    )
+
+    assert item["addedOnSeconds"] == 1_779_388_620
+
+
 def test_torrent_detail_resolves_paths_without_raw_browser_paths():
     settings = AppSettings(
         windows_download_root="C:\\Downloads",
@@ -54,4 +69,3 @@ def test_torrent_detail_resolves_paths_without_raw_browser_paths():
     assert resolve_file_path(torrent, files[0], settings).wsl_path == Path(
         "/mnt/c/Downloads/Show/Season 1/main.mkv"
     )
-

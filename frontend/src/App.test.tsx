@@ -73,10 +73,15 @@ describe("App", () => {
     expect(screen.getByLabelText("Media preview")).toBeInTheDocument();
     expect(screen.getByLabelText("Video candidates")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /E Keep/ }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /D Reject/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /D Delete/ }).length).toBeGreaterThan(0);
     expect(screen.getByText(/\/ 40/)).toBeInTheDocument();
     expect(screen.getByText("slots after Keep")).toBeInTheDocument();
+    expect(screen.queryByText(/completed torrents/)).not.toBeInTheDocument();
+    expect(screen.queryByText("details pending")).not.toBeInTheDocument();
+    expect(screen.queryByText("Marked files and delete risk")).not.toBeInTheDocument();
+    expect(screen.queryByText("Non-video leftovers")).not.toBeInTheDocument();
     expect(screen.queryByText(/Junk files/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Needs attention")).not.toBeInTheDocument();
     expect(screen.queryByText(/Left-hand keys/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Sample data/i)).not.toBeInTheDocument();
 
@@ -122,6 +127,32 @@ describe("App", () => {
     expect(queueCalls).toBe(2);
   });
 
+  it("shows a toast after manual refresh", async () => {
+    let queueCalls = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/queue") {
+          queueCalls += 1;
+          return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/torrents/abc") {
+          return Response.json(torrentDetail("abc", "Done Torrent"));
+        }
+        throw new Error(`unexpected url ${url}`);
+      }),
+    );
+
+    render(<App />);
+    expect((await screen.findAllByText("Done Torrent")).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => expect(queueCalls).toBe(2));
+    expect(await screen.findByText("Queue refreshed.")).toBeInTheDocument();
+  });
+
   it("refreshes the queue immediately after settings save", async () => {
     let queueCalls = 0;
     vi.stubGlobal(
@@ -150,6 +181,52 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /Save settings/ }));
 
     await waitFor(() => expect(queueCalls).toBe(2));
+    expect(await screen.findByText("Settings saved.")).toBeInTheDocument();
+  });
+
+  it("deletes the active torrent, advances to the next sorted torrent, and shows a toast", async () => {
+    let deleted = false;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/queue") {
+        return Response.json({
+          ...queueResponse("abc", "Alpha Torrent"),
+          torrents: deleted
+            ? [queueTorrent("def", "Beta Torrent", 200)]
+            : [queueTorrent("abc", "Alpha Torrent", 300), queueTorrent("def", "Beta Torrent", 200)],
+        });
+      }
+      if (url === "/api/torrents/abc") {
+        return Response.json(torrentDetail("abc", "Alpha Torrent"));
+      }
+      if (url === "/api/torrents/def") {
+        return Response.json(torrentDetail("def", "Beta Torrent"));
+      }
+      if (url === "/api/torrents/abc/reject" && init?.method === "POST") {
+        deleted = true;
+        return Response.json({ ok: true });
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByRole("button", { name: /Alpha Torrent/ })).toHaveAttribute("aria-current", "true");
+    fireEvent.click(screen.getAllByRole("button", { name: /D Delete torrent/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /D Confirm Delete/ })[0]);
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/torrents/abc/reject",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ confirmed: true }),
+        }),
+      ),
+    );
+    expect(await screen.findByText("Deleted torrent and files.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /Beta Torrent/ })).toHaveAttribute("aria-current", "true"));
   });
 
   it("selects session folder through the local folder picker", async () => {
@@ -285,37 +362,31 @@ describe("App", () => {
     expect(screen.queryByText("Keep deletes unmarked torrent leftovers.")).not.toBeInTheDocument();
   });
 
-  it("requires an explicit cleanup retry confirmation for cleanup-failed attention", async () => {
-    let queueCalls = 0;
-    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  it("does not render a bottom needs-attention section", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url === "/api/queue") {
-        queueCalls += 1;
         return Response.json({
           ...queueResponse("abc", "Done Torrent"),
-          torrents: [],
-          attentionTorrents:
-            queueCalls === 1
-              ? [
-                  {
-                    hash: "abc",
-                    name: "Done Torrent",
-                    status: "attention",
-                    progress: 1,
-                    totalSizeBytes: 0,
-                    savePath: "",
-                    candidates: [],
-                    junkFiles: [],
-                    attentionReason: "cleanup_failed",
-                    attentionDetail: "cleanup delete failed",
-                    movedFiles: ["/mnt/c/Review/main.mp4"],
-                  },
-                ]
-              : [],
+          attentionTorrents: [
+            {
+              hash: "abc",
+              name: "Done Torrent",
+              status: "attention",
+              progress: 1,
+              totalSizeBytes: 0,
+              savePath: "",
+              candidates: [],
+              junkFiles: [],
+              attentionReason: "cleanup_failed",
+              attentionDetail: "cleanup delete failed",
+              movedFiles: ["/mnt/c/Review/main.mp4"],
+            },
+          ],
         });
       }
-      if (url === "/api/torrents/abc/cleanup-retry" && init?.method === "POST") {
-        return Response.json({ ok: true });
+      if (url === "/api/torrents/abc") {
+        return Response.json(torrentDetail("abc", "Done Torrent"));
       }
       throw new Error(`unexpected url ${url}`);
     });
@@ -323,38 +394,17 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("cleanup delete failed")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Retry cleanup/ }));
-    expect(screen.getByRole("button", { name: /Confirm retry/ })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /Confirm retry/ }));
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/torrents/abc/cleanup-retry",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ confirmed: true }),
-        }),
-      ),
-    );
-    await waitFor(() => expect(screen.queryByText("cleanup delete failed")).not.toBeInTheDocument());
+    expect(await screen.findByText("Done Torrent")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Attention 1/ })).toBeInTheDocument();
+    expect(screen.queryByText("Needs attention")).not.toBeInTheDocument();
+    expect(screen.queryByText("cleanup delete failed")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Retry cleanup/ })).not.toBeInTheDocument();
   });
 });
 
 function queueResponse(hash: string, name: string) {
   return {
-    torrents: [
-      {
-        hash,
-        name,
-        status: "completed",
-        progress: 1,
-        totalSizeBytes: 1200,
-        savePath: `C:\\Downloads\\${name}`,
-        contentPath: `C:\\Downloads\\${name}`,
-      },
-    ],
+    torrents: [queueTorrent(hash, name, 100)],
     attentionTorrents: [],
     settings: {
       qbtBaseUrl: "http://localhost:8080",
@@ -367,6 +417,19 @@ function queueResponse(hash: string, name: string) {
       folderCount: 16,
       connected: true,
     },
+  };
+}
+
+function queueTorrent(hash: string, name: string, addedOnSeconds: number) {
+  return {
+    hash,
+    name,
+    addedOnSeconds,
+    status: "completed",
+    progress: 1,
+    totalSizeBytes: 1200,
+    savePath: `C:\\Downloads\\${name}`,
+    contentPath: `C:\\Downloads\\${name}`,
   };
 }
 

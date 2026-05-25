@@ -47,6 +47,7 @@ def queue_item(torrent: dict[str, Any]) -> dict[str, Any]:
         "status": "completed",
         "progress": torrent.get("progress", 1),
         "totalSizeBytes": int(torrent.get("size") or torrent.get("total_size") or 0),
+        "addedOnSeconds": int(torrent.get("added_on") or torrent.get("addedOnSeconds") or 0),
         "savePath": torrent.get("save_path") or torrent.get("savePath") or "",
         "contentPath": torrent.get("content_path") or torrent.get("contentPath") or "",
     }
@@ -64,4 +65,3 @@ def build_torrent_detail(
         candidate["path"] = str(resolved.wsl_path)
         candidate["windowsPath"] = resolved.windows_path
     return {**queue_item(torrent), "candidates": candidates, "junkFiles": junk}
-

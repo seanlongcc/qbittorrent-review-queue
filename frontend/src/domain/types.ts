@@ -27,6 +27,7 @@ export type ReviewTorrent = {
   status: TorrentStatus;
   progress: number;
   totalSizeBytes: number;
+  addedOnSeconds?: number;
   savePath: string;
   contentPath?: string;
   candidates?: VideoCandidate[];

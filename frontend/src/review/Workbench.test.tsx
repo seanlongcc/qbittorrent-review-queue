@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CandidateTabs, MediaStage, QueueSidebar } from "./Workbench";
 
@@ -47,6 +47,39 @@ describe("MediaStage", () => {
     expect(screen.queryByText("Select a completed torrent")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Empty media preview")).toHaveClass("empty");
   });
+
+  it("pauses browser playback before opening the selected video externally", () => {
+    const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => undefined);
+    const onOpenExternal = vi.fn();
+
+    render(
+      <MediaStage
+        loading={false}
+        onOpenExternal={onOpenExternal}
+        torrent={{
+          hash: "abc",
+          name: "Done Torrent",
+          status: "completed",
+          progress: 1,
+          totalSizeBytes: 1200,
+          savePath: "C:\\Downloads\\Done Torrent",
+        }}
+        candidate={{
+          fileIndex: 7,
+          name: "main.mp4",
+          extension: "mp4",
+          sizeBytes: 1000,
+          path: "/mnt/c/Downloads/Done Torrent/main.mp4",
+          playable: true,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Open external/ }));
+
+    expect(pause).toHaveBeenCalledTimes(1);
+    expect(onOpenExternal).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("CandidateTabs", () => {
@@ -75,7 +108,6 @@ describe("QueueSidebar", () => {
         attentionTorrents={[]}
         busy={false}
         loading={false}
-        onCleanupRetry={() => undefined}
         onRefresh={() => undefined}
         onSelect={() => undefined}
         onSortChange={() => undefined}
@@ -118,7 +150,6 @@ describe("QueueSidebar", () => {
         attentionTorrents={[]}
         busy={false}
         loading={false}
-        onCleanupRetry={() => undefined}
         onRefresh={() => undefined}
         onSelect={() => undefined}
         onSortChange={() => undefined}

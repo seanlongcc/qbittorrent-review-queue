@@ -70,5 +70,5 @@ def keep_torrent(request: KeepRequest, qbt: TorrentDeleter) -> dict[str, list[st
 
 def reject_torrent(torrent_hash: str, qbt: TorrentDeleter, *, confirmed: bool) -> None:
     if not confirmed:
-        raise ReviewWorkflowError("Reject requires confirmation")
+        raise ReviewWorkflowError("Delete requires confirmation")
     qbt.delete_torrent(torrent_hash, delete_files=True)

@@ -1,6 +1,13 @@
 import type { LocalSettings, ReviewTorrent, VideoCandidate } from "../domain/types";
 
 export type ArmedAction = "keep" | "reject" | null;
+export type ToastTone = "info" | "success" | "error";
+
+export type ReviewToast = {
+  id: number;
+  message: string;
+  tone: ToastTone;
+};
 
 export type ReviewState = {
   torrents: ReviewTorrent[];
@@ -16,10 +23,12 @@ export type ReviewState = {
   loadingQueue: boolean;
   loadingDetail: boolean;
   actionBusy: boolean;
+  toast: ReviewToast | null;
+  toastId: number;
 };
 
 export type ReviewAction =
-  | { type: "queueLoading" }
+  | { type: "queueLoading"; toast?: string }
   | { type: "queueLoaded"; torrents: ReviewTorrent[]; attentionTorrents: ReviewTorrent[]; settings: LocalSettings }
   | { type: "queueFailed"; message: string }
   | { type: "detailLoading" }
@@ -38,6 +47,8 @@ export type ReviewAction =
   | { type: "actionStarted"; label: string }
   | { type: "actionFinished"; notice: string }
   | { type: "actionFailed"; message: string }
+  | { type: "torrentRemoved"; hash: string; nextHash: string | null }
+  | { type: "toastDismissed" }
   | { type: "cancel" }
   | { type: "toggleSettings" }
   | { type: "settingsUpdated"; settings: LocalSettings };
@@ -75,6 +86,8 @@ export function createInitialState(
     loadingQueue: false,
     loadingDetail: false,
     actionBusy: false,
+    toast: null,
+    toastId: 0,
   };
 }
 
@@ -138,7 +151,9 @@ export function needsKeepConfirmation(state: ReviewState): boolean {
 export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewState {
   switch (action.type) {
     case "queueLoading":
-      return { ...state, loadingQueue: true, notice: "Refreshing qBittorrent queue." };
+      return action.toast
+        ? withToast({ ...state, loadingQueue: true, notice: "Refreshing qBittorrent queue." }, action.toast, "info")
+        : { ...state, loadingQueue: true, notice: "Refreshing qBittorrent queue." };
     case "queueLoaded": {
       const detailsByHash = { ...state.detailsByHash };
       for (const torrent of action.torrents) {
@@ -147,7 +162,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
       const activeStillExists = action.torrents.some((torrent) => torrent.hash === state.activeTorrentHash);
       const activeTorrentHash = state.activeTorrentHash ?? action.torrents[0]?.hash ?? null;
       const activeMissing = Boolean(state.activeTorrentHash && !activeStillExists && detailsByHash[state.activeTorrentHash]);
-      return {
+      const nextState = {
         ...state,
         torrents: action.torrents,
         attentionTorrents: action.attentionTorrents,
@@ -161,9 +176,12 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
           ? "Selected torrent no longer in qBittorrent. Choose Next or Refresh."
           : action.torrents.length ? "Queue ready." : "No completed torrents are ready.",
       };
+      return state.toast?.message === "Refreshing qBittorrent queue."
+        ? withToast(nextState, "Queue refreshed.", "success")
+        : nextState;
     }
     case "queueFailed":
-      return { ...state, loadingQueue: false, notice: action.message };
+      return withToast({ ...state, loadingQueue: false, notice: action.message }, action.message, "error");
     case "detailLoading":
       return { ...state, loadingDetail: true };
     case "detailLoaded": {
@@ -221,7 +239,7 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
         return state;
       }
       if (state.armedAction !== "reject") {
-        return { ...state, armedAction: "reject", notice: "Reject will delete torrent files with deleteFiles=true." };
+        return { ...state, armedAction: "reject", notice: "Delete will remove torrent files with deleteFiles=true." };
       }
       return state;
     case "openExternal": {
@@ -231,18 +249,53 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
     case "actionStarted":
       return { ...state, actionBusy: true, notice: action.label };
     case "actionFinished":
-      return { ...state, actionBusy: false, armedAction: null, notice: action.notice };
+      return withToast({ ...state, actionBusy: false, armedAction: null, notice: action.notice }, action.notice, "success");
     case "actionFailed":
-      return { ...state, actionBusy: false, notice: action.message };
+      return withToast({ ...state, actionBusy: false, notice: action.message }, action.message, "error");
+    case "torrentRemoved":
+      return removeTorrent(state, action.hash, action.nextHash);
+    case "toastDismissed":
+      return { ...state, toast: null };
     case "cancel":
       return { ...state, armedAction: null, notice: "Action cancelled." };
     case "toggleSettings":
       return { ...state, settingsOpen: !state.settingsOpen, armedAction: null };
     case "settingsUpdated":
-      return { ...state, settings: action.settings, settingsOpen: false, notice: "Settings updated locally." };
+      return withToast(
+        { ...state, settings: action.settings, settingsOpen: false, notice: "Settings saved." },
+        "Settings saved.",
+        "success",
+      );
     default:
       return state;
   }
+}
+
+function withToast(state: ReviewState, message: string, tone: ToastTone): ReviewState {
+  const toastId = state.toastId + 1;
+  return {
+    ...state,
+    toastId,
+    toast: { id: toastId, message, tone },
+  };
+}
+
+function removeTorrent(state: ReviewState, hash: string, nextHash: string | null): ReviewState {
+  const { [hash]: _removedDetail, ...detailsByHash } = state.detailsByHash;
+  const { [hash]: _removedMarked, ...markedByTorrent } = state.markedByTorrent;
+  const torrents = state.torrents.filter((torrent) => torrent.hash !== hash);
+  const activeTorrentHash = nextHash && torrents.some((torrent) => torrent.hash === nextHash)
+    ? nextHash
+    : torrents[0]?.hash ?? null;
+  return {
+    ...state,
+    torrents,
+    detailsByHash,
+    markedByTorrent,
+    activeTorrentHash,
+    activeCandidateIndex: 0,
+    armedAction: null,
+  };
 }
 
 function defaultMarkedFileIndexes(torrent: ReviewTorrent): number[] {
