@@ -71,11 +71,12 @@ describe("App", () => {
     expect(await screen.findByText("Done Torrent")).toBeInTheDocument();
     expect(screen.getByLabelText("Review queue")).toBeInTheDocument();
     expect(screen.getByLabelText("Media preview")).toBeInTheDocument();
+    expect(screen.getByLabelText("Review commands")).toBeInTheDocument();
     expect(screen.getByLabelText("Video candidates")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /E Keep/ }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /D Delete/ }).length).toBeGreaterThan(0);
-    expect(screen.getByText(/\/ 40/)).toBeInTheDocument();
-    expect(screen.getByText("slots after Keep")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /D Reject/ }).length).toBeGreaterThan(0);
+    expect(screen.getByText("17 / 40")).toBeInTheDocument();
+    expect(screen.getByText("slots")).toBeInTheDocument();
     expect(screen.queryByText(/completed torrents/)).not.toBeInTheDocument();
     expect(screen.queryByText("details pending")).not.toBeInTheDocument();
     expect(screen.queryByText("Marked files and delete risk")).not.toBeInTheDocument();
@@ -147,7 +148,7 @@ describe("App", () => {
     render(<App />);
     expect((await screen.findAllByText("Done Torrent")).length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh queue" }));
 
     await waitFor(() => expect(queueCalls).toBe(2));
     expect(await screen.findByText("Queue refreshed.")).toBeInTheDocument();
@@ -213,8 +214,8 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByRole("button", { name: /Alpha Torrent/ })).toHaveAttribute("aria-current", "true");
-    fireEvent.click(screen.getAllByRole("button", { name: /D Delete torrent/ })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: /D Confirm Delete/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /D Reject/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /D Confirm/ })[0]);
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -395,7 +396,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Done Torrent")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Attention 1/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Attention/ })).not.toBeInTheDocument();
     expect(screen.queryByText("Needs attention")).not.toBeInTheDocument();
     expect(screen.queryByText("cleanup delete failed")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Retry cleanup/ })).not.toBeInTheDocument();

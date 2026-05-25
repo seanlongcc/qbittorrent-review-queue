@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CandidateTabs, MediaStage, QueueSidebar } from "./Workbench";
+import { MediaStage, QueueSidebar, ReviewCommandBar } from "./Workbench";
 
 afterEach(() => {
   cleanup();
@@ -82,17 +82,34 @@ describe("MediaStage", () => {
   });
 });
 
-describe("CandidateTabs", () => {
-  it("orders review navigation buttons by torrent, video, then mark", () => {
-    render(<CandidateTabs onCommand={() => undefined} />);
+describe("ReviewCommandBar", () => {
+  it("orders review buttons around the split key cells", () => {
+    render(
+      <ReviewCommandBar
+        markedCount={1}
+        folderCountAfterKeep={17}
+        folderLimit={40}
+        armedAction={null}
+        busy={false}
+        activeMissing={false}
+        keepBlocked={false}
+        hasTorrent
+        onCommand={() => undefined}
+      />,
+    );
 
     expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
-      "QPrev torrent",
-      "ANext torrent",
-      "WPrev video",
-      "SNext video",
-      "FMark selected",
+      "Q",
+      "W",
+      "S",
+      "A",
+      "FMark",
+      "EKeep",
+      "DReject",
     ]);
+    expect(screen.getByRole("button", { name: "Previous torrent, Q" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next torrent, A" })).toBeInTheDocument();
+    expect(screen.getByText("17 / 40")).toBeInTheDocument();
   });
 });
 
@@ -105,24 +122,12 @@ describe("QueueSidebar", () => {
     render(
       <QueueSidebar
         activeHash="torrent-24"
-        attentionTorrents={[]}
         busy={false}
         loading={false}
         onRefresh={() => undefined}
         onSelect={() => undefined}
         onSortChange={() => undefined}
         sort={{ field: "added", direction: "desc" }}
-        settings={{
-          qbtBaseUrl: "http://localhost:8080",
-          qbtUsername: "admin",
-          passwordConfigured: true,
-          windowsDownloadRoot: "C:\\Downloads",
-          wslDownloadRoot: "/mnt/c/Downloads",
-          sessionFolder: "C:\\Review",
-          sessionFolderLimit: 40,
-          folderCount: 2,
-          connected: true,
-        }}
         torrents={Array.from({ length: 30 }, (_, index) => ({
           hash: `torrent-${index}`,
           name: `Torrent ${index}`,
@@ -147,24 +152,12 @@ describe("QueueSidebar", () => {
     render(
       <QueueSidebar
         activeHash="torrent-1"
-        attentionTorrents={[]}
         busy={false}
         loading={false}
         onRefresh={() => undefined}
         onSelect={() => undefined}
         onSortChange={() => undefined}
         sort={{ field: "added", direction: "desc" }}
-        settings={{
-          qbtBaseUrl: "http://localhost:8080",
-          qbtUsername: "admin",
-          passwordConfigured: true,
-          windowsDownloadRoot: "C:\\Downloads",
-          wslDownloadRoot: "/mnt/c/Downloads",
-          sessionFolder: "C:\\Review",
-          sessionFolderLimit: 40,
-          folderCount: 2,
-          connected: true,
-        }}
         torrents={Array.from({ length: 3 }, (_, index) => ({
           hash: `torrent-${index}`,
           name: `Torrent ${index}`,

@@ -122,6 +122,12 @@ Primary UX shape:
 
 ## Development Workflow
 
+Common local commands:
+
+- `npm run dev` - Start FastAPI backend on `127.0.0.1:8000` and Vite frontend on `0.0.0.0:5500`; installs backend dev dependencies into `.venv` when missing.
+- `npm run dev:backend` - Start only the FastAPI backend.
+- `npm run dev:frontend` - Start only the Vite frontend.
+
 Before implementation:
 
 1. Write or update a short product/design spec for new major features.

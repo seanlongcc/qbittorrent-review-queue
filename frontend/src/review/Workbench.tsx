@@ -1,13 +1,20 @@
-import { useEffect, useRef, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type FormEvent } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Circle,
   CircleCheck,
   ExternalLink,
   Film,
+  FolderCheck,
   FolderOpen,
   RefreshCw,
   Settings,
+  SkipBack,
+  SkipForward,
   Trash2,
   X,
 } from "lucide-react";
@@ -29,30 +36,40 @@ const suppressedReviewNotices = new Set([
 export function TitleBar({
   settings,
   busy,
+  refreshing,
   onSettings,
 }: {
   settings: LocalSettings;
   busy: boolean;
+  refreshing: boolean;
   onSettings: () => void;
 }) {
+  const apiLabel = settings.connected
+    ? (refreshing ? "API refreshing" : "API connected")
+    : "API disconnected";
   return (
     <header className="qbt-titlebar">
       <div className="qbt-brand">
         <span>qBittorrent Review Queue</span>
       </div>
-      <span className="qbt-meta">{settings.qbtBaseUrl}</span>
-      <Button className="btn" type="button" disabled={busy} onClick={onSettings}>
-        <Settings size={15} /> Settings
-      </Button>
+      <div className="qbt-title-actions">
+        <span className="qbt-url-pill">{settings.qbtBaseUrl}</span>
+        <span className={settings.connected ? "api-pill" : "api-pill offline"} role="status">
+          <span className="api-dot" aria-hidden="true" />
+          {apiLabel}
+        </span>
+        <Button className="btn" type="button" disabled={busy} onClick={onSettings}>
+          <Settings size={15} />
+          <span>Settings</span>
+        </Button>
+      </div>
     </header>
   );
 }
 
 export function QueueSidebar({
   torrents,
-  attentionTorrents,
   activeHash,
-  settings,
   busy,
   loading,
   sort,
@@ -61,9 +78,7 @@ export function QueueSidebar({
   onSortChange,
 }: {
   torrents: ReviewTorrent[];
-  attentionTorrents: ReviewTorrent[];
   activeHash: string | null;
-  settings: LocalSettings;
   busy: boolean;
   loading: boolean;
   sort: QueueSort;
@@ -72,8 +87,6 @@ export function QueueSidebar({
   onSortChange: (sort: QueueSort) => void;
 }) {
   const activeTorrentRef = useRef<HTMLButtonElement | null>(null);
-  const videoReadyCount = torrents.filter((torrent) => (torrent.candidates?.length ?? 0) > 0).length;
-  const apiStatus = settings.connected ? (loading ? "Api connected, refreshing queue." : "Api connected, refreshed recently.") : "Api disconnected. Check settings.";
 
   useEffect(() => {
     if (!activeHash) {
@@ -97,27 +110,16 @@ export function QueueSidebar({
           <div>
             <h2>Queue</h2>
           </div>
-          <Button className="btn primary" type="button" disabled={busy || loading} onClick={onRefresh}>
-            <RefreshCw size={15} /> Refresh
+          <Button
+            aria-label="Refresh queue"
+            className="btn icon-btn"
+            title="Refresh queue"
+            type="button"
+            disabled={busy || loading}
+            onClick={onRefresh}
+          >
+            <RefreshCw size={15} />
           </Button>
-        </div>
-        <div className={settings.connected ? "sync-line" : "sync-line offline"} role="status">
-          <span aria-hidden="true" />
-          <span>{apiStatus}</span>
-        </div>
-        <div className="filter-grid" aria-label="Queue filters">
-          <button className="filter-card active" type="button">
-            <span>All</span>
-            <strong>{torrents.length}</strong>
-          </button>
-          <button className="filter-card" type="button">
-            <span>With video</span>
-            <strong>{videoReadyCount || "-"}</strong>
-          </button>
-          <button className="filter-card" type="button">
-            <span>Attention</span>
-            <strong>{attentionTorrents.length}</strong>
-          </button>
         </div>
       </div>
       <div className="sort-box" aria-label="Queue sort">
@@ -132,26 +134,19 @@ export function QueueSidebar({
             <option value="name">Name</option>
             <option value="size">Size</option>
           </select>
-          <div className="sort-direction" aria-label="Sort direction">
-            <button
-              className={sort.direction === "desc" ? "active" : ""}
-              type="button"
-              onClick={() => onSortChange({ ...sort, direction: "desc" })}
-            >
-              Desc
-            </button>
-            <button
-              className={sort.direction === "asc" ? "active" : ""}
-              type="button"
-              onClick={() => onSortChange({ ...sort, direction: "asc" })}
-            >
-              Asc
-            </button>
-          </div>
+          <button
+            className="sort-direction"
+            type="button"
+            aria-label={sort.direction === "desc" ? "Switch to ascending sort" : "Switch to descending sort"}
+            title={sort.direction === "desc" ? "Descending" : "Ascending"}
+            onClick={() => onSortChange({ ...sort, direction: sort.direction === "desc" ? "asc" : "desc" })}
+          >
+            {sort.direction === "desc" ? <ArrowDown size={15} /> : <ArrowUp size={15} />}
+          </button>
         </div>
         <span>{sortDescription(sort)}</span>
       </div>
-      <div className="side-head"><span>Torrents</span><span>Size</span></div>
+      <div className="side-head"><span>Torrents <span className="count-pill">{torrents.length}</span></span><span>Size</span></div>
       <div className="torrent-list">
         {torrents.map((torrent) => {
           const active = torrent.hash === activeHash;
@@ -207,8 +202,15 @@ export function MediaStage({
           <p className="path">{candidate?.path ?? torrent?.savePath ?? "Queue empty or disconnected."}</p>
         </div>
         {onOpenExternal ? (
-          <CommandButton disabled={busy || !candidate} command="T" onClick={openExternal}>
-            <ExternalLink size={15} /> Open external
+          <CommandButton
+            aria-label="Open external, T"
+            className="icon-command"
+            disabled={busy || !candidate}
+            command="T"
+            title="Open external"
+            onClick={openExternal}
+          >
+            <ExternalLink size={15} />
           </CommandButton>
         ) : null}
       </div>
@@ -238,14 +240,89 @@ export function MediaStage({
   );
 }
 
-export function CandidateTabs({ onCommand }: { onCommand: (command: ReviewCommand) => void }) {
+export function ReviewCommandBar({
+  markedCount,
+  folderCountAfterKeep,
+  folderLimit,
+  armedAction,
+  busy,
+  activeMissing,
+  keepBlocked,
+  hasTorrent,
+  onCommand,
+}: {
+  markedCount: number;
+  folderCountAfterKeep: number;
+  folderLimit: number;
+  armedAction: "keep" | "reject" | null;
+  busy: boolean;
+  activeMissing: boolean;
+  keepBlocked: boolean;
+  hasTorrent: boolean;
+  onCommand: (command: ReviewCommand) => void;
+}) {
   return (
-    <div className="candidate-tabs">
-      <Button className="tab" type="button" onClick={() => onCommand("previousTorrent")}><Keycap>Q</Keycap>Prev torrent</Button>
-      <Button className="tab" type="button" onClick={() => onCommand("nextTorrent")}><Keycap>A</Keycap>Next torrent</Button>
-      <Button className="tab" type="button" onClick={() => onCommand("previousCandidate")}><Keycap>W</Keycap>Prev video</Button>
-      <Button className="tab" type="button" onClick={() => onCommand("nextCandidate")}><Keycap>S</Keycap>Next video</Button>
-      <Button className="tab active" type="button" onClick={() => onCommand("toggleMark")}><Keycap>F</Keycap>Mark selected</Button>
+    <div className="candidate-tabs" aria-label="Review commands">
+      <div className="candidate-nav">
+        <CommandButton
+          aria-label="Previous torrent, Q"
+          className="icon-command"
+          command="Q"
+          title="Previous torrent"
+          onClick={() => onCommand("previousTorrent")}
+        >
+          <SkipBack size={15} />
+        </CommandButton>
+        <CommandButton
+          aria-label="Previous video, W"
+          className="icon-command"
+          command="W"
+          title="Previous video"
+          onClick={() => onCommand("previousCandidate")}
+        >
+          <ChevronLeft size={15} />
+        </CommandButton>
+        <CommandButton
+          aria-label="Next video, S"
+          className="icon-command"
+          command="S"
+          title="Next video"
+          onClick={() => onCommand("nextCandidate")}
+        >
+          <ChevronRight size={15} />
+        </CommandButton>
+        <CommandButton
+          aria-label="Next torrent, A"
+          className="icon-command"
+          command="A"
+          title="Next torrent"
+          onClick={() => onCommand("nextTorrent")}
+        >
+          <SkipForward size={15} />
+        </CommandButton>
+      </div>
+      <div className="candidate-actions">
+        <span className="slot-pill" title="Session folder count after Keep">
+          <strong>{folderCountAfterKeep} / {folderLimit}</strong>
+          <span>slots</span>
+        </span>
+        <span className="slot-pill">
+          <strong>{markedCount}</strong>
+          <span>marked</span>
+        </span>
+        <CommandButton className="mark-command" command="F" tone="primary" onClick={() => onCommand("toggleMark")}>
+          <Check size={15} />
+          <span>Mark</span>
+        </CommandButton>
+        <CommandButton disabled={busy || keepBlocked} command="E" tone="keep" onClick={() => onCommand("keep")}>
+          <FolderCheck size={15} />
+          <span>{armedAction === "keep" ? "Confirm" : "Keep"}</span>
+        </CommandButton>
+        <CommandButton disabled={busy || !hasTorrent || activeMissing} command="D" tone="reject" onClick={() => onCommand("reject")}>
+          <Trash2 size={15} />
+          <span>{armedAction === "reject" ? "Confirm" : "Reject"}</span>
+        </CommandButton>
+      </div>
     </div>
   );
 }
@@ -254,11 +331,9 @@ export function CandidateTable({
   torrent,
   activeCandidate,
   markedIndexes,
-  settings,
   armedAction,
   busy,
   activeMissing,
-  keepBlocked,
   notice,
   onSelectCandidate,
   onToggleMark,
@@ -267,62 +342,47 @@ export function CandidateTable({
   torrent: ReviewTorrent | null;
   activeCandidate: VideoCandidate | null;
   markedIndexes: number[];
-  settings: LocalSettings;
   armedAction: "keep" | "reject" | null;
   busy: boolean;
   activeMissing: boolean;
-  keepBlocked: boolean;
   notice: string;
   onSelectCandidate: (index: number) => void;
   onToggleMark: (fileIndex: number) => void;
   onCommand: (command: ReviewCommand) => void;
 }) {
   const candidates = torrent?.candidates ?? [];
-  const markedCount = markedIndexes.length;
-  const folderCountAfterKeep = settings.folderCount + markedCount;
-  const leftoverBytes = torrent ? leftoverSizeBytes(torrent, markedIndexes) : 0;
   const showNotice = Boolean(notice && !suppressedReviewNotices.has(notice));
 
   return (
     <section aria-label="Video candidates" className="candidate-section">
-      <div className="review-dock" aria-label="Review decision">
-        <div className="review-dock-main">
-          <div className="review-title">
-            <strong>Review</strong>
-          </div>
-          <span className="review-pill">{markedCount} marked</span>
-          <span className="review-pill"><strong>{folderCountAfterKeep} / {settings.sessionFolderLimit}</strong> slots after Keep</span>
-          <span className="review-pill"><strong>{formatBytes(leftoverBytes)}</strong> leftovers delete</span>
-          <CommandButton disabled={busy || keepBlocked} command="E" tone="keep" onClick={() => onCommand("keep")}>
-            {armedAction === "keep" ? "Confirm Keep" : "Keep marked"}
-          </CommandButton>
-          <CommandButton disabled={busy || !torrent || activeMissing} command="D" tone="reject" onClick={() => onCommand("reject")}>
-            <Trash2 size={15} /> {armedAction === "reject" ? "Confirm Delete" : "Delete torrent"}
-          </CommandButton>
+      {showNotice ? <span className="decision-notice">{notice}</span> : null}
+      {activeMissing ? (
+        <div className="vanished-alert" role="status">
+          Selected torrent no longer in qBittorrent. Keep and Reject are disabled until you choose another torrent or refresh.
         </div>
-        {showNotice ? <span className="decision-notice">{notice}</span> : null}
-        {activeMissing ? (
-          <div className="vanished-alert" role="status">
-            Selected torrent no longer in qBittorrent. Keep and Delete are disabled until you choose another torrent or refresh.
-          </div>
-        ) : null}
-        {armedAction === "keep" ? (
-          <div className="confirm keep-confirm open" role="alert">
-            <strong>Keep deletes unmarked torrent leftovers.</strong>
-            <span className="meta">Marked videos move first; qBittorrent cleanup runs only after move verification.</span>
-            <CommandButton disabled={busy} command="E" tone="keep" onClick={() => onCommand("keep")}>Confirm Keep</CommandButton>
-            <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> Cancel</Button>
-          </div>
-        ) : null}
-        {armedAction === "reject" ? (
-          <div className="confirm open" role="alert">
-            <strong>Delete removes torrent files.</strong>
-            <span className="meta">Press D again or click Confirm Delete to call qBittorrent with deleteFiles=true.</span>
-            <CommandButton disabled={busy} command="D" tone="reject" onClick={() => onCommand("reject")}><Trash2 size={15} /> Confirm Delete</CommandButton>
-            <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> Cancel</Button>
-          </div>
-        ) : null}
-      </div>
+      ) : null}
+      {armedAction === "keep" ? (
+        <div className="confirm keep-confirm open" role="alert">
+          <strong>Keep deletes unmarked torrent leftovers.</strong>
+          <span className="meta">Marked videos move first; qBittorrent cleanup runs only after move verification.</span>
+          <CommandButton disabled={busy} command="E" tone="keep" onClick={() => onCommand("keep")}>
+            <FolderCheck size={15} />
+            <span>Confirm</span>
+          </CommandButton>
+          <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> Cancel</Button>
+        </div>
+      ) : null}
+      {armedAction === "reject" ? (
+        <div className="confirm open" role="alert">
+          <strong>Reject deletes torrent files.</strong>
+          <span className="meta">Press D again or click Confirm to call qBittorrent with deleteFiles=true.</span>
+          <CommandButton disabled={busy} command="D" tone="reject" onClick={() => onCommand("reject")}>
+            <Trash2 size={15} />
+            <span>Confirm</span>
+          </CommandButton>
+          <Button className="btn" type="button" onClick={() => onCommand("cancel")}><X size={15} /> Cancel</Button>
+        </div>
+      ) : null}
       <div className="section-head">
         <span>Candidates</span>
       </div>
@@ -369,16 +429,6 @@ export function CandidateTable({
       </div>
     </section>
   );
-}
-
-function leftoverSizeBytes(torrent: ReviewTorrent, markedIndexes: number[]): number {
-  const marked = new Set(markedIndexes);
-  const unmarkedCandidates = torrent.candidates?.filter((candidate) => !marked.has(candidate.fileIndex)) ?? [];
-  return unmarkedCandidates.reduce((total, candidate) => total + candidate.sizeBytes, 0) + totalJunkSizeBytes(torrent);
-}
-
-function totalJunkSizeBytes(torrent: ReviewTorrent): number {
-  return torrent.junkFiles?.reduce((total, file) => total + file.sizeBytes, 0) ?? 0;
 }
 
 export function ToastViewport({
@@ -589,6 +639,7 @@ function messageFromUnknown(error: unknown): string {
 function CommandButton({
   command,
   tone,
+  className,
   children,
   ...props
 }: ComponentProps<typeof Button> & {
@@ -596,13 +647,9 @@ function CommandButton({
   tone?: "primary" | "keep" | "reject";
 }) {
   return (
-    <Button className={["btn", tone].filter(Boolean).join(" ")} type="button" {...props}>
-      <Keycap>{command}</Keycap>
-      {children}
+    <Button {...props} className={["btn", "command-button", tone, className].filter(Boolean).join(" ")} type="button">
+      <span className="command-key">{command}</span>
+      <span className="command-body">{children}</span>
     </Button>
   );
-}
-
-function Keycap({ children }: { children: ReactNode }) {
-  return <kbd>{children}</kbd>;
 }

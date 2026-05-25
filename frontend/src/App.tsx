@@ -3,9 +3,9 @@ import { getQueue, getTorrentDetail, keepTorrent, openTorrentFile, rejectTorrent
 import type { QueueResponse } from "./domain/types";
 import {
   CandidateTable,
-  CandidateTabs,
   MediaStage,
   QueueSidebar,
+  ReviewCommandBar,
   SettingsPanel,
   TitleBar,
   ToastViewport,
@@ -17,7 +17,6 @@ import {
   createInitialState,
   getActiveCandidate,
   getActiveTorrent,
-  getAttentionTorrents,
   getMarkedCandidateIndexes,
   getMarkedCandidates,
   getReviewableTorrents,
@@ -35,7 +34,6 @@ export function App() {
     () => sortReviewableTorrents(reviewableTorrents, queueSort),
     [queueSort, reviewableTorrents],
   );
-  const attentionTorrents = getAttentionTorrents(state);
   const activeTorrent = getActiveTorrent(state);
   const activeCandidate = getActiveCandidate(state);
   const markedCandidates = getMarkedCandidates(state);
@@ -237,14 +235,13 @@ export function App() {
         <TitleBar
           settings={state.settings}
           busy={state.loadingQueue || state.actionBusy}
+          refreshing={state.loadingQueue}
           onSettings={() => dispatch({ type: "toggleSettings" })}
         />
         <section className="qbt-main" aria-label="Review workbench">
           <QueueSidebar
             torrents={sortedReviewableTorrents}
-            attentionTorrents={attentionTorrents}
             activeHash={state.activeTorrentHash}
-            settings={state.settings}
             busy={state.actionBusy}
             loading={state.loadingQueue}
             sort={queueSort}
@@ -260,16 +257,24 @@ export function App() {
               busy={state.actionBusy}
               onOpenExternal={() => handleCommand("openExternal")}
             />
-            <CandidateTabs onCommand={handleCommand} />
-            <CandidateTable
-              torrent={activeTorrent}
-              activeCandidate={activeCandidate}
-              markedIndexes={markedIndexes}
-              settings={state.settings}
+            <ReviewCommandBar
+              markedCount={markedIndexes.length}
+              folderCountAfterKeep={state.settings.folderCount + markedIndexes.length}
+              folderLimit={state.settings.sessionFolderLimit}
               armedAction={state.armedAction}
               busy={state.actionBusy}
               activeMissing={activeMissing}
               keepBlocked={activeMissing || markedCandidates.length === 0 || wouldExceedFolderLimit(state)}
+              hasTorrent={Boolean(activeTorrent)}
+              onCommand={handleCommand}
+            />
+            <CandidateTable
+              torrent={activeTorrent}
+              activeCandidate={activeCandidate}
+              markedIndexes={markedIndexes}
+              armedAction={state.armedAction}
+              busy={state.actionBusy}
+              activeMissing={activeMissing}
               notice={state.notice}
               onSelectCandidate={(index) => dispatch({ type: "selectCandidate", index })}
               onToggleMark={(fileIndex) => dispatch({ type: "toggleMark", fileIndex })}
