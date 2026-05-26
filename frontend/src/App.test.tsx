@@ -368,6 +368,35 @@ describe("App", () => {
     expect(screen.getAllByRole("button", { name: /D Confirm/ }).length).toBeGreaterThan(0);
   });
 
+  it("toggles preview mute with the M keybind before a focused video can consume it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/queue") {
+          return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/torrents/abc") {
+          return Response.json(torrentDetail("abc", "Done Torrent"));
+        }
+        throw new Error(`unexpected url ${url}`);
+      }),
+    );
+
+    render(<App />);
+
+    const video = (await screen.findByLabelText("Autoplay video preview")) as HTMLVideoElement;
+    video.addEventListener("keydown", (event) => event.stopPropagation());
+    video.focus();
+
+    expect(video.muted).toBe(false);
+
+    fireEvent.keyDown(video, { key: "M" });
+
+    await waitFor(() => expect(video.muted).toBe(true));
+    expect(screen.getByRole("button", { name: "Unmute preview audio, M" })).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("selects session folder through the local folder picker", async () => {
     vi.stubGlobal(
       "fetch",

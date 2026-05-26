@@ -73,12 +73,12 @@ describe("MediaStage", () => {
     const labels = buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent);
 
     expect((screen.getByLabelText("Autoplay video preview") as HTMLVideoElement).muted).toBe(true);
-    expect(labels.indexOf("Unmute preview audio")).toBeLessThan(labels.indexOf("Open external, T"));
-    expect(screen.getByRole("button", { name: "Unmute preview audio" }).parentElement).toHaveClass("preview-actions");
+    expect(labels.indexOf("Unmute preview audio, M")).toBeLessThan(labels.indexOf("Open external, T"));
+    expect(screen.getByRole("button", { name: "Unmute preview audio, M" }).parentElement).toHaveClass("preview-actions");
     expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).toHaveClass("preview-actions");
     expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).not.toHaveClass("preview-title");
 
-    fireEvent.click(screen.getByRole("button", { name: "Unmute preview audio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Unmute preview audio, M" }));
 
     expect(onToggleMuted).toHaveBeenCalledTimes(1);
   });

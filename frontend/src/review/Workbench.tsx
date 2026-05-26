@@ -203,11 +203,11 @@ export function MediaStage({
         <div className="preview-actions">
           {onToggleMuted ? (
             <Button
-              aria-label={muted ? "Unmute preview audio" : "Mute preview audio"}
+              aria-label={muted ? "Unmute preview audio, M" : "Mute preview audio, M"}
               aria-pressed={muted}
               className="btn icon-btn"
               disabled={busy || !candidate?.playable}
-              title={muted ? "Unmute preview audio" : "Mute preview audio"}
+              title={muted ? "Unmute preview audio, M" : "Mute preview audio, M"}
               type="button"
               onClick={onToggleMuted}
             >

@@ -7,6 +7,7 @@ export type ReviewCommand =
   | "keep"
   | "reject"
   | "openExternal"
+  | "toggleMute"
   | "cancel";
 
 export function isTypingTarget(target: EventTarget | null): boolean {
@@ -53,6 +54,9 @@ export function commandFromKey(event: KeyboardEvent): ReviewCommand | null {
   }
   if (key === "t") {
     return "openExternal";
+  }
+  if (key === "m") {
+    return "toggleMute";
   }
   if (key === "escape") {
     return "cancel";

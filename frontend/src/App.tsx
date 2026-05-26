@@ -210,6 +210,10 @@ export function App() {
         void runOpenExternal();
         return;
       }
+      if (command === "toggleMute") {
+        setPreviewMuted((muted) => !muted);
+        return;
+      }
       dispatch({ type: command });
     },
     [runKeep, runOpenExternal, runReject, sortedReviewableTorrents, state.activeTorrentHash],
