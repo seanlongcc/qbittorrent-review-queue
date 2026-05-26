@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -149,6 +150,42 @@ def test_append_history_event_cleans_event_payload(tmp_path):
     ]
 
 
+def test_history_redacts_secret_looking_text_values(tmp_path):
+    path = tmp_path / "execution-log.json"
+
+    appended = append_history_event(
+        path,
+        {
+            "action": "keep",
+            "status": "success",
+            "torrentHash": "hash password=secret",
+            "torrentName": "Show token: abc",
+            "summary": "password=secret token: abc",
+            "detail": "authorization=Bearer xyz cookie=session=abc",
+            "files": [
+                {
+                    "sourcePath": "/tmp/password=secret/main.mkv",
+                    "destinationPath": "/review/token: abc/main.mkv",
+                    "name": "cookie=session=abc.mkv",
+                }
+            ],
+        },
+    )
+
+    assert appended["torrentHash"] == "hash password=[redacted]"
+    assert appended["torrentName"] == "Show token=[redacted]"
+    assert appended["summary"] == "password=[redacted] token=[redacted]"
+    assert appended["detail"] == "authorization=[redacted] cookie=[redacted]"
+    assert appended["files"] == [
+        {
+            "sourcePath": "/tmp/password=[redacted]",
+            "destinationPath": "/review/token=[redacted]",
+            "name": "cookie=[redacted]",
+        }
+    ]
+    assert load_history(path)[0] == appended
+
+
 def test_load_history_sanitizes_persisted_items(tmp_path):
     path = tmp_path / "execution-log.json"
     path.write_text(
@@ -162,8 +199,8 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
                         "status": "success",
                         "torrentHash": "abc",
                         "torrentName": "Show",
-                        "summary": "Kept 1 video",
-                        "detail": "Moved file",
+                        "summary": "Kept 1 video password=secret",
+                        "detail": "Moved file token: abc",
                         "password": "secret",
                         "token": "secret",
                         "debug": "noise",
@@ -240,8 +277,8 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
             "status": "success",
             "torrentHash": "abc",
             "torrentName": "Show",
-            "summary": "Kept 1 video",
-            "detail": "Moved file",
+            "summary": "Kept 1 video password=[redacted]",
+            "detail": "Moved file token=[redacted]",
             "files": [
                 {
                     "sourcePath": "/mnt/c/Downloads/main.mkv",
@@ -297,6 +334,33 @@ def test_append_history_event_rejects_invalid_limit(tmp_path):
     for limit in (0, -1):
         with pytest.raises(ValueError, match="History limit must be at least 1"):
             append_history_event(path, event, limit=limit)
+
+
+def test_append_history_event_removes_temporary_file_on_replace_failure(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "execution-log.json"
+
+    def fail_replace(self, target):
+        if isinstance(self, Path) and self.name.startswith("execution-log.json."):
+            raise OSError("replace failed")
+        return original_replace(self, target)
+
+    original_replace = Path.replace
+    monkeypatch.setattr(Path, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="replace failed"):
+        append_history_event(
+            path,
+            {
+                "action": "keep",
+                "status": "success",
+                "summary": "Kept 1 video",
+            },
+        )
+
+    assert not path.exists()
+    assert list(tmp_path.glob("execution-log.json.*.tmp")) == []
 
 
 def test_load_history_recovers_from_missing_or_corrupt_file(tmp_path):

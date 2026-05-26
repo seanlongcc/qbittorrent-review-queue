@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
@@ -28,6 +29,11 @@ HISTORY_STRING_KEYS = {
 }
 HISTORY_ACTIONS = {"keep", "delete", "open_external", "failure"}
 HISTORY_STATUSES = {"success", "failed"}
+SECRET_PATTERN = re.compile(
+    r"\b(password|token|authorization|cookie)\s*[:=]\s*.*?"
+    r"(?=\s+\b(?:password|token|authorization|cookie)\s*[:=]|$)",
+    re.IGNORECASE,
+)
 _HISTORY_LOCK = Lock()
 
 
@@ -76,8 +82,14 @@ def append_history_event(
         temporary_path = history_path.with_name(
             f"{history_path.name}.{uuid4().hex}.tmp"
         )
-        temporary_path.write_text(json.dumps({"items": items}, indent=2), encoding="utf-8")
-        temporary_path.replace(history_path)
+        try:
+            temporary_path.write_text(
+                json.dumps({"items": items}, indent=2), encoding="utf-8"
+            )
+            temporary_path.replace(history_path)
+        except OSError:
+            temporary_path.unlink(missing_ok=True)
+            raise
     return item
 
 
@@ -128,7 +140,7 @@ def _clean_public_fields(event: dict[str, Any]) -> dict[str, Any]:
                 cleaned[key] = files
             continue
         if key in HISTORY_STRING_KEYS and isinstance(value, str):
-            cleaned[key] = value
+            cleaned[key] = _redact_secret_text(value)
     return cleaned
 
 
@@ -137,7 +149,7 @@ def _clean_file(file_entry: dict[str, Any]) -> dict[str, Any]:
     for key in ("sourcePath", "destinationPath", "name"):
         value = file_entry.get(key)
         if isinstance(value, str):
-            cleaned[key] = value
+            cleaned[key] = _redact_secret_text(value)
     file_index = file_entry.get("fileIndex")
     if isinstance(file_index, int) and not isinstance(file_index, bool):
         cleaned["fileIndex"] = file_index
@@ -160,3 +172,10 @@ def _is_valid_utc_timestamp(timestamp: str) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _redact_secret_text(value: str) -> str:
+    return SECRET_PATTERN.sub(
+        lambda match: f"{match.group(1).lower()}=[redacted]",
+        value,
+    )
