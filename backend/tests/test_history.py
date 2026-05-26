@@ -254,14 +254,14 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
                         ],
                     },
                     {
-                        "id": "bad-action",
+                        "id": "3456789abcdef0123456789abcdef012",
                         "timestamp": "2026-05-26T12:00:00Z",
                         "action": "download",
                         "status": "success",
                         "summary": "Bad action",
                     },
                     {
-                        "id": "bad-status",
+                        "id": "456789abcdef0123456789abcdef0123",
                         "timestamp": "2026-05-26T12:00:00Z",
                         "action": "keep",
                         "status": "done",
@@ -331,7 +331,7 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
                         "summary": "Non-Z timestamp",
                     },
                     {
-                        "id": "failure-success",
+                        "id": "56789abcdef0123456789abcdef01234",
                         "timestamp": "2026-05-26T12:00:00Z",
                         "action": "failure",
                         "status": "success",
