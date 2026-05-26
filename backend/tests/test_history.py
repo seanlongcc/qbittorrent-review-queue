@@ -193,7 +193,7 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
             {
                 "items": [
                     {
-                        "id": "valid-id",
+                        "id": "0123456789abcdef0123456789abcdef",
                         "timestamp": "2026-05-26T12:00:00Z",
                         "action": "keep",
                         "status": "success",
@@ -250,6 +250,41 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
                         "summary": "Empty id",
                     },
                     {
+                        "id": "password=secret",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Secret id",
+                    },
+                    {
+                        "id": "0123456789ABCDEF0123456789ABCDEF",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Uppercase id",
+                    },
+                    {
+                        "id": "0123456789abcdef0123456789abcdeg",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Nonhex id",
+                    },
+                    {
+                        "id": "0123456789abcdef0123456789abcde",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Short id",
+                    },
+                    {
+                        "id": "0123456789abcdef0123456789abcdef0",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Long id",
+                    },
+                    {
                         "id": "bad-timestamp",
                         "timestamp": "bad",
                         "action": "keep",
@@ -271,7 +306,7 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
 
     assert load_history(path) == [
         {
-            "id": "valid-id",
+            "id": "0123456789abcdef0123456789abcdef",
             "timestamp": "2026-05-26T12:00:00Z",
             "action": "keep",
             "status": "success",

@@ -29,6 +29,7 @@ HISTORY_STRING_KEYS = {
 }
 HISTORY_ACTIONS = {"keep", "delete", "open_external", "failure"}
 HISTORY_STATUSES = {"success", "failed"}
+HISTORY_ID_PATTERN = re.compile(r"[0-9a-f]{32}")
 SECRET_PATTERN = re.compile(
     r"\b(password|token|authorization|cookie)\s*[:=]\s*.*?"
     r"(?=\s+\b(?:password|token|authorization|cookie)\s*[:=]|$)",
@@ -105,7 +106,7 @@ def _clean_event(event: dict[str, Any]) -> dict[str, Any]:
 def _clean_loaded_item(item: dict[str, Any]) -> dict[str, Any] | None:
     item_id = item.get("id")
     timestamp = item.get("timestamp")
-    if not isinstance(item_id, str) or not item_id:
+    if not isinstance(item_id, str) or not _is_valid_history_id(item_id):
         return None
     if not isinstance(timestamp, str) or not _is_valid_utc_timestamp(timestamp):
         return None
@@ -172,6 +173,10 @@ def _is_valid_utc_timestamp(timestamp: str) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _is_valid_history_id(item_id: str) -> bool:
+    return HISTORY_ID_PATTERN.fullmatch(item_id) is not None
 
 
 def _redact_secret_text(value: str) -> str:
