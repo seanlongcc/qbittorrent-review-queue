@@ -36,9 +36,9 @@ def append_history_event(
 ) -> dict[str, Any]:
     history_path = Path(path)
     item = {
+        **_clean_event(event),
         "id": uuid4().hex,
         "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        **_clean_event(event),
     }
     items = [item, *load_history(history_path)][:limit]
     history_path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,10 +67,11 @@ def _clean_event(event: dict[str, Any]) -> dict[str, Any]:
 
 def _clean_file(file_entry: dict[str, Any]) -> dict[str, Any]:
     cleaned: dict[str, Any] = {}
-    for key in ("sourcePath", "destinationPath", "fileIndex", "name"):
+    for key in ("sourcePath", "destinationPath", "name"):
         value = file_entry.get(key)
-        if value is None:
-            continue
-        if isinstance(value, (str, int)):
+        if isinstance(value, str):
             cleaned[key] = value
+    file_index = file_entry.get("fileIndex")
+    if isinstance(file_index, int) and not isinstance(file_index, bool):
+        cleaned["fileIndex"] = file_index
     return cleaned
