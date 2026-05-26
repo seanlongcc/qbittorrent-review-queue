@@ -85,21 +85,23 @@ def _clean_event(event: dict[str, Any]) -> dict[str, Any]:
     cleaned = _clean_public_fields(event)
     if not all(key in cleaned for key in ("action", "status", "summary")):
         raise ValueError("History event requires action, status, and summary")
-    if cleaned["action"] not in HISTORY_ACTIONS or cleaned["status"] not in HISTORY_STATUSES:
-        raise ValueError("History event action or status is invalid")
+    if not _has_valid_action_status(cleaned):
+        raise ValueError("History event action/status combination is invalid")
     return cleaned
 
 
 def _clean_loaded_item(item: dict[str, Any]) -> dict[str, Any] | None:
     item_id = item.get("id")
     timestamp = item.get("timestamp")
-    if not isinstance(item_id, str) or not isinstance(timestamp, str):
+    if not isinstance(item_id, str) or not item_id:
+        return None
+    if not isinstance(timestamp, str) or not _is_valid_utc_timestamp(timestamp):
         return None
 
     cleaned = _clean_public_fields(item)
     if not all(key in cleaned for key in ("action", "status", "summary")):
         return None
-    if cleaned["action"] not in HISTORY_ACTIONS or cleaned["status"] not in HISTORY_STATUSES:
+    if not _has_valid_action_status(cleaned):
         return None
     return {
         "id": item_id,
@@ -140,3 +142,21 @@ def _clean_file(file_entry: dict[str, Any]) -> dict[str, Any]:
     if isinstance(file_index, int) and not isinstance(file_index, bool):
         cleaned["fileIndex"] = file_index
     return cleaned
+
+
+def _has_valid_action_status(item: dict[str, Any]) -> bool:
+    action = item.get("action")
+    status = item.get("status")
+    if action not in HISTORY_ACTIONS or status not in HISTORY_STATUSES:
+        return False
+    return action != "failure" or status == "failed"
+
+
+def _is_valid_utc_timestamp(timestamp: str) -> bool:
+    if not timestamp.endswith("Z"):
+        return False
+    try:
+        datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return True

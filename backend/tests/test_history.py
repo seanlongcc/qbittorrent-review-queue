@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from backend.app.history import append_history_event, history_file_path, load_history
 
 
@@ -203,6 +205,27 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
                         "status": "success",
                         "summary": "Bad id",
                     },
+                    {
+                        "id": "",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Empty id",
+                    },
+                    {
+                        "id": "bad-timestamp",
+                        "timestamp": "bad",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Bad timestamp",
+                    },
+                    {
+                        "id": "failure-success",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "failure",
+                        "status": "success",
+                        "summary": "Contradictory state",
+                    },
                 ]
             }
         ),
@@ -245,15 +268,18 @@ def test_append_history_event_rejects_invalid_action_or_status(tmp_path):
             "status": "done",
             "summary": "Bad status",
         },
+        {
+            "action": "failure",
+            "status": "success",
+            "summary": "Contradictory state",
+        },
     ]
 
     for event in invalid_events:
-        try:
+        with pytest.raises(
+            ValueError, match="History event action/status combination is invalid"
+        ):
             append_history_event(path, event)
-        except ValueError as error:
-            assert str(error) == "History event action or status is invalid"
-        else:
-            raise AssertionError(f"Expected ValueError for event={event}")
         assert not path.exists()
         assert load_history(path) == []
 
@@ -269,12 +295,8 @@ def test_append_history_event_rejects_invalid_limit(tmp_path):
     }
 
     for limit in (0, -1):
-        try:
+        with pytest.raises(ValueError, match="History limit must be at least 1"):
             append_history_event(path, event, limit=limit)
-        except ValueError as error:
-            assert str(error) == "History limit must be at least 1"
-        else:
-            raise AssertionError(f"Expected ValueError for limit={limit}")
 
 
 def test_load_history_recovers_from_missing_or_corrupt_file(tmp_path):
