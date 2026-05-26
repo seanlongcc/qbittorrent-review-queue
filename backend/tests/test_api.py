@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi.testclient import TestClient
 
 from backend.app.cleanup import clear_cleanup_failures
@@ -57,6 +59,36 @@ def test_pick_folder_endpoint_reports_cancelled_selection(monkeypatch):
     assert response.json() == {"path": None, "cancelled": True}
 
 
+def test_history_endpoint_returns_persisted_items(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    config_path = tmp_path / "config.local.json"
+    monkeypatch.setenv("CONFIG_LOCAL_PATH", str(config_path))
+    (tmp_path / "execution-log.json").write_text(
+        json.dumps(
+            {
+                "items": [
+                    {
+                        "id": "0" * 32,
+                        "timestamp": "2026-05-26T20:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "torrentHash": "abc",
+                        "torrentName": "Show",
+                        "summary": "Kept 1 video",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    client = TestClient(create_app())
+
+    response = client.get("/api/history")
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["summary"] == "Kept 1 video"
+
+
 def test_keep_requires_confirmation_before_moving_files(monkeypatch, tmp_path):
     clear_cleanup_failures()
     downloads = tmp_path / "downloads"
@@ -82,6 +114,90 @@ def test_keep_requires_confirmation_before_moving_files(monkeypatch, tmp_path):
     assert source.exists()
     assert not (session / "main.mkv").exists()
     assert fake_qbt.deleted == []
+
+
+def test_keep_logs_moved_files_after_confirmation(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    source = show / "main.mkv"
+    source.write_text("video", encoding="utf-8")
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(
+        files=[
+            {"index": 0, "name": "main.mkv", "size": 100, "progress": 1},
+            {"index": 1, "name": "readme.nfo", "size": 1, "progress": 1},
+        ]
+    )
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": True})
+
+    assert response.status_code == 200
+    item = read_history_file(tmp_path)[0]
+    assert item["id"]
+    assert item["timestamp"]
+    assert item["action"] == "keep"
+    assert item["status"] == "success"
+    assert item["torrentHash"] == "abc"
+    assert item["torrentName"] == "Show"
+    assert item["summary"] == "Kept 1 video"
+    assert item["files"] == [
+        {
+            "sourcePath": str(source),
+            "destinationPath": str(session / "main.mkv"),
+            "fileIndex": 0,
+            "name": "main.mkv",
+        }
+    ]
+
+
+def test_unconfirmed_keep_does_not_write_history(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    (show / "main.mkv").write_text("video", encoding="utf-8")
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[{"index": 0, "name": "main.mkv", "size": 100, "progress": 1}])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": False})
+
+    assert response.status_code == 409
+    assert read_history_file(tmp_path) == []
+
+
+def test_failed_confirmed_keep_logs_failure_without_success(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[{"index": 0, "name": "missing.mkv", "size": 100, "progress": 1}])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": True})
+
+    assert response.status_code == 409
+    items = read_history_file(tmp_path)
+    assert len(items) == 1
+    item = items[0]
+    assert item["id"]
+    assert item["timestamp"]
+    assert item["action"] == "keep"
+    assert item["status"] == "failed"
+    assert item["torrentHash"] == "abc"
+    assert item["torrentName"] == "Show"
+    assert item["summary"] == "Keep failed"
+    assert "Marked file is missing" in item["detail"]
 
 
 def test_keep_moves_marked_files_after_confirmation_without_deleting_torrent(monkeypatch, tmp_path):
@@ -201,6 +317,84 @@ def test_keep_does_not_create_cleanup_attention_when_qbt_delete_would_fail(monke
     assert queue_body["attentionTorrents"] == []
 
 
+def test_reject_logs_confirmed_delete(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/reject", json={"confirmed": True})
+
+    assert response.status_code == 200
+    assert fake_qbt.deleted == [("abc", True)]
+    item = read_history_file(tmp_path)[0]
+    assert item["id"]
+    assert item["timestamp"]
+    assert item["action"] == "delete"
+    assert item["status"] == "success"
+    assert item["torrentHash"] == "abc"
+    assert item["torrentName"] == "Show"
+    assert item["summary"] == "Deleted torrent"
+    assert item["detail"] == "qBittorrent deleteFiles=true"
+
+
+def test_failed_confirmed_reject_logs_failure(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[])
+    fake_qbt.fail_delete = True
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/reject", json={"confirmed": True})
+
+    assert response.status_code == 503
+    item = read_history_file(tmp_path)[0]
+    assert item["id"]
+    assert item["timestamp"]
+    assert item["action"] == "delete"
+    assert item["status"] == "failed"
+    assert item["torrentHash"] == "abc"
+    assert item["torrentName"] == "Show"
+    assert item["summary"] == "Delete failed"
+    assert "cleanup delete failed" in item["detail"]
+
+
+def test_open_external_logs_selected_file(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    source = show / "main.mkv"
+    source.write_text("video", encoding="utf-8")
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[{"index": 0, "name": "main.mkv", "size": 100, "progress": 1}])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    opened: list[str] = []
+    monkeypatch.setattr("backend.app.main.open_windows_default", opened.append)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/open", json={"fileIndex": 0})
+
+    assert response.status_code == 200
+    assert opened == ["C:\\Downloads\\Show\\main.mkv"]
+    item = read_history_file(tmp_path)[0]
+    assert item["id"]
+    assert item["timestamp"]
+    assert item["action"] == "open_external"
+    assert item["status"] == "success"
+    assert item["torrentHash"] == "abc"
+    assert item["torrentName"] == "Show"
+    assert item["summary"] == "Opened main.mkv externally"
+    assert item["files"][0]["sourcePath"] == str(source)
+
+
 class FakeQbt:
     def __init__(self, files):
         self.files = files
@@ -242,3 +436,10 @@ def configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt):
     monkeypatch.setenv("SESSION_FOLDER", str(session))
     monkeypatch.setenv("QBT_PASSWORD", "secret")
     monkeypatch.setattr("backend.app.main._qbt", lambda: fake_qbt)
+
+
+def read_history_file(tmp_path):
+    path = tmp_path / "execution-log.json"
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))["items"]
