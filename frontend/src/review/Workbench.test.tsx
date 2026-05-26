@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MediaStage, QueueSidebar, ReviewCommandBar } from "./Workbench";
+import { CandidateTable, MediaStage, QueueSidebar, ReviewCommandBar } from "./Workbench";
 
 afterEach(() => {
   cleanup();
@@ -37,7 +37,7 @@ describe("MediaStage", () => {
     expect(video.muted).toBe(false);
     expect(video).not.toHaveAttribute("muted");
     expect(video).toHaveAttribute("playsinline");
-    expect(video).toHaveAttribute("preload", "auto");
+    expect(video).toHaveAttribute("preload", "metadata");
     expect(video).toHaveAttribute("src", "/media/abc/7");
   });
 
@@ -153,6 +153,55 @@ describe("ReviewCommandBar", () => {
     expect(screen.getByRole("button", { name: "Next torrent, A" })).toBeInTheDocument();
     expect(screen.getByText("16 / 40")).toBeInTheDocument();
     expect(screen.getByText("in use")).toBeInTheDocument();
+  });
+});
+
+describe("CandidateTable", () => {
+  it("marks moved candidates with a distinct row state and disabled mark control", () => {
+    const onToggleMark = vi.fn();
+
+    render(
+      <CandidateTable
+        torrent={{
+          hash: "abc",
+          name: "Done Torrent",
+          status: "completed",
+          progress: 1,
+          totalSizeBytes: 1200,
+          savePath: "C:\\Downloads\\Done Torrent",
+          candidates: [
+            {
+              fileIndex: 0,
+              name: "main.mp4",
+              extension: "mp4",
+              sizeBytes: 1000,
+              path: "/mnt/c/Downloads/Done Torrent/main.mp4",
+              playable: true,
+            },
+          ],
+        }}
+        activeCandidate={null}
+        markedIndexes={[]}
+        movedIndexes={[0]}
+        armedAction={null}
+        busy={false}
+        activeMissing={false}
+        onSelectCandidate={() => undefined}
+        onToggleMark={onToggleMark}
+        onCommand={() => undefined}
+      />,
+    );
+
+    const movedRow = screen.getByText("main.mp4").closest(".candidate-row");
+    const movedButton = screen.getByRole("button", { name: "Moved candidate" });
+
+    expect(movedRow).toHaveClass("moved");
+    expect(screen.getByText("moved")).toBeInTheDocument();
+    expect(movedButton).toBeDisabled();
+
+    fireEvent.click(movedButton);
+
+    expect(onToggleMark).not.toHaveBeenCalled();
   });
 });
 

@@ -57,7 +57,7 @@ def test_pick_folder_endpoint_reports_cancelled_selection(monkeypatch):
     assert response.json() == {"path": None, "cancelled": True}
 
 
-def test_keep_all_video_candidates_does_not_require_confirmation_for_junk(monkeypatch, tmp_path):
+def test_keep_requires_confirmation_before_moving_files(monkeypatch, tmp_path):
     clear_cleanup_failures()
     downloads = tmp_path / "downloads"
     show = downloads / "Show"
@@ -77,9 +77,37 @@ def test_keep_all_video_candidates_does_not_require_confirmation_for_junk(monkey
 
     response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": False})
 
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Keep requires confirmation"
+    assert source.exists()
+    assert not (session / "main.mkv").exists()
+    assert fake_qbt.deleted == []
+
+
+def test_keep_moves_marked_files_after_confirmation_without_deleting_torrent(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    source = show / "main.mkv"
+    source.write_text("video", encoding="utf-8")
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(
+        files=[
+            {"index": 0, "name": "main.mkv", "size": 100, "progress": 1},
+            {"index": 1, "name": "readme.nfo", "size": 1, "progress": 1},
+        ]
+    )
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": True})
+
     assert response.status_code == 200
+    assert response.json()["folderCount"] == 1
     assert (session / "main.mkv").exists()
-    assert fake_qbt.deleted == [("abc", True)]
+    assert fake_qbt.deleted == []
 
 
 def test_keep_rejects_non_video_file_indexes(monkeypatch, tmp_path):
@@ -101,7 +129,7 @@ def test_keep_rejects_non_video_file_indexes(monkeypatch, tmp_path):
     assert fake_qbt.deleted == []
 
 
-def test_keep_requires_confirmation_for_unmarked_video_candidates(monkeypatch, tmp_path):
+def test_keep_leaves_unmarked_video_candidates_after_confirmation(monkeypatch, tmp_path):
     clear_cleanup_failures()
     downloads = tmp_path / "downloads"
     show = downloads / "Show"
@@ -119,10 +147,11 @@ def test_keep_requires_confirmation_for_unmarked_video_candidates(monkeypatch, t
     configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
     client = TestClient(create_app())
 
-    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": False})
+    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": True})
 
-    assert response.status_code == 409
-    assert response.json()["detail"] == "Keep requires confirmation"
+    assert response.status_code == 200
+    assert (session / "main.mkv").exists()
+    assert (show / "extra.mp4").exists()
     assert fake_qbt.deleted == []
 
 
@@ -140,14 +169,14 @@ def test_keep_uses_windows_session_folder_through_wsl_mount(monkeypatch, tmp_pat
     monkeypatch.setenv("QBRQ_WSL_MOUNT_ROOT", str(mount_root))
     client = TestClient(create_app())
 
-    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": False})
+    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": True})
 
     assert response.status_code == 200
     assert (session / "main.mkv").exists()
-    assert fake_qbt.deleted == [("abc", True)]
+    assert fake_qbt.deleted == []
 
 
-def test_keep_cleanup_failure_becomes_attention_and_retry_is_explicit(monkeypatch, tmp_path):
+def test_keep_does_not_create_cleanup_attention_when_qbt_delete_would_fail(monkeypatch, tmp_path):
     clear_cleanup_failures()
     downloads = tmp_path / "downloads"
     show = downloads / "Show"
@@ -160,28 +189,16 @@ def test_keep_cleanup_failure_becomes_attention_and_retry_is_explicit(monkeypatc
     configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
     client = TestClient(create_app())
 
-    keep_response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": False})
+    keep_response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": True})
 
-    assert keep_response.status_code == 202
-    assert keep_response.json()["cleanupFailed"] is True
+    assert keep_response.status_code == 200
     assert (session / "main.mkv").exists()
-    assert fake_qbt.deleted == [("abc", True)]
+    assert fake_qbt.deleted == []
 
     queue_response = client.get("/api/queue")
     queue_body = queue_response.json()
-    assert queue_body["torrents"] == []
-    assert queue_body["attentionTorrents"][0]["hash"] == "abc"
-    assert queue_body["attentionTorrents"][0]["attentionReason"] == "cleanup_failed"
-
-    unconfirmed_retry = client.post("/api/torrents/abc/cleanup-retry", json={"confirmed": False})
-    assert unconfirmed_retry.status_code == 409
-
-    fake_qbt.fail_delete = False
-    retry_response = client.post("/api/torrents/abc/cleanup-retry", json={"confirmed": True})
-    assert retry_response.status_code == 200
-    assert retry_response.json() == {"ok": True}
-    assert fake_qbt.deleted == [("abc", True), ("abc", True)]
-    assert client.get("/api/queue").json()["attentionTorrents"] == []
+    assert queue_body["torrents"][0]["hash"] == "abc"
+    assert queue_body["attentionTorrents"] == []
 
 
 class FakeQbt:

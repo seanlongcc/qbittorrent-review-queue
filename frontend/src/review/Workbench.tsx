@@ -237,7 +237,7 @@ export function MediaStage({
             controls
             muted={muted}
             playsInline
-            preload="auto"
+            preload="metadata"
             ref={videoRef}
             src={mediaSrc}
           />
@@ -346,6 +346,7 @@ export function CandidateTable({
   torrent,
   activeCandidate,
   markedIndexes,
+  movedIndexes,
   armedAction,
   busy,
   activeMissing,
@@ -356,6 +357,7 @@ export function CandidateTable({
   torrent: ReviewTorrent | null;
   activeCandidate: VideoCandidate | null;
   markedIndexes: number[];
+  movedIndexes: number[];
   armedAction: "keep" | "reject" | null;
   busy: boolean;
   activeMissing: boolean;
@@ -374,8 +376,8 @@ export function CandidateTable({
       ) : null}
       {armedAction === "keep" ? (
         <div className="confirm keep-confirm open" role="alert">
-          <strong>Keep deletes unmarked torrent leftovers.</strong>
-          <span className="meta">Marked videos move first; qBittorrent cleanup runs only after move verification.</span>
+          <strong>Move marked files to the session folder.</strong>
+          <span className="meta">qBittorrent content remains until you confirm Delete.</span>
           <CommandButton disabled={busy} command="E" tone="keep" onClick={() => onCommand("keep")}>
             <FolderCheck size={15} />
             <span>Confirm</span>
@@ -400,10 +402,14 @@ export function CandidateTable({
       <div className="candidate-list">
         {candidates.map((candidate, index) => {
           const marked = markedIndexes.includes(candidate.fileIndex);
+          const moved = movedIndexes.includes(candidate.fileIndex);
           const selected = activeCandidate?.fileIndex === candidate.fileIndex;
+          const status = [selected ? "previewing" : null, moved ? "moved" : marked ? "marked" : "unmarked"]
+            .filter(Boolean)
+            .join(" / ");
           return (
             <div
-              className={["candidate-row", selected ? "selected" : "", marked ? "marked" : ""].filter(Boolean).join(" ")}
+              className={["candidate-row", selected ? "selected" : "", marked ? "marked" : "", moved ? "moved" : ""].filter(Boolean).join(" ")}
               key={candidate.fileIndex}
               role="button"
               tabIndex={0}
@@ -417,21 +423,25 @@ export function CandidateTable({
             >
               <button
                 className="mark-cell"
-                aria-label={marked ? "Unmark candidate" : "Mark candidate"}
-                aria-pressed={marked}
+                aria-label={moved ? "Moved candidate" : marked ? "Unmark candidate" : "Mark candidate"}
+                aria-pressed={moved || marked}
+                disabled={moved}
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
+                  if (moved) {
+                    return;
+                  }
                   onToggleMark(candidate.fileIndex);
                 }}
               >
-                {marked ? <CircleCheck size={16} /> : <Circle size={16} />}
+                {moved || marked ? <CircleCheck size={16} /> : <Circle size={16} />}
               </button>
               <span className="candidate-main">
                 <span className="candidate-name">{candidate.name}</span>
                 <span className="candidate-meta">
                   <span>{formatBytes(candidate.sizeBytes)}</span>
-                  <span>{selected ? "previewing" : marked ? "marked" : "unmarked"}</span>
+                  <span>{status}</span>
                 </span>
               </span>
             </div>

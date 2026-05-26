@@ -19,9 +19,9 @@ import {
   getActiveTorrent,
   getMarkedCandidateIndexes,
   getMarkedCandidates,
+  getMovedCandidateIndexes,
   getReviewableTorrents,
   isActiveTorrentMissing,
-  needsKeepConfirmation,
   reviewReducer,
   wouldExceedFolderLimit,
 } from "./review/reviewState";
@@ -39,6 +39,7 @@ export function App() {
   const activeCandidate = getActiveCandidate(state);
   const markedCandidates = getMarkedCandidates(state);
   const markedIndexes = getMarkedCandidateIndexes(state);
+  const movedIndexes = getMovedCandidateIndexes(state);
   const activeMissing = isActiveTorrentMissing(state);
 
   const refreshQueue = useCallback(async (options: { toast?: boolean } = {}): Promise<QueueResponse | null> => {
@@ -119,26 +120,28 @@ export function App() {
       dispatch({ type: "keep" });
       return;
     }
-    const confirmationNeeded = needsKeepConfirmation(state);
-    if (confirmationNeeded && state.armedAction !== "keep") {
+    if (state.armedAction !== "keep") {
       dispatch({ type: "keep" });
       return;
     }
     dispatch({ type: "actionStarted", label: "Keeping marked files" });
     try {
-      const nextHash = nextSortedTorrentHash(sortedReviewableTorrents, torrent.hash, 1);
       const result = await keepTorrent(torrent.hash, {
         fileIndexes: marked.map((candidate) => candidate.fileIndex),
-        confirmed: confirmationNeeded,
+        confirmed: true,
       });
-      dispatch({ type: "folderCountIncremented", count: result.moved.length });
+      dispatch({
+        type: "candidatesMoved",
+        hash: torrent.hash,
+        fileIndexes: marked.map((candidate) => candidate.fileIndex),
+        folderCount: result.folderCount,
+      });
       dispatch({ type: "actionFinished", notice: `Kept ${marked.length} video${marked.length === 1 ? "" : "s"}` });
-      dispatch({ type: "torrentRemoved", hash: torrent.hash, nextHash });
       await refreshQueue();
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
-  }, [refreshQueue, sortedReviewableTorrents, state]);
+  }, [refreshQueue, state]);
 
   const runReject = useCallback(async () => {
     const torrent = getActiveTorrent(state);
@@ -287,6 +290,7 @@ export function App() {
               torrent={activeTorrent}
               activeCandidate={activeCandidate}
               markedIndexes={markedIndexes}
+              movedIndexes={movedIndexes}
               armedAction={state.armedAction}
               busy={state.actionBusy}
               activeMissing={activeMissing}

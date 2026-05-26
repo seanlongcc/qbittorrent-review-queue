@@ -215,19 +215,17 @@ describe("App", () => {
     expect(await screen.findByText("Settings saved")).toBeInTheDocument();
   });
 
-  it("updates slots in use after Keep with the refreshed folder count", async () => {
+  it("updates moved rows and preserves slots in use when later queue refresh is stale", async () => {
     let kept = false;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url === "/api/queue") {
         return Response.json({
           ...queueResponse("abc", "Alpha Torrent"),
-          torrents: kept
-            ? [queueTorrent("def", "Beta Torrent", 200)]
-            : [queueTorrent("abc", "Alpha Torrent", 300), queueTorrent("def", "Beta Torrent", 200)],
+          torrents: [queueTorrent("abc", "Alpha Torrent", 300), queueTorrent("def", "Beta Torrent", 200)],
           settings: {
             ...queueResponse("abc", "Alpha Torrent").settings,
-            folderCount: kept ? 17 : 16,
+            folderCount: 16,
           },
         });
       }
@@ -239,7 +237,7 @@ describe("App", () => {
       }
       if (url === "/api/torrents/abc/keep" && init?.method === "POST") {
         kept = true;
-        return Response.json({ moved: ["/mnt/c/Review/main.mp4"] });
+        return Response.json({ moved: ["/mnt/c/Review/main.mp4"], folderCount: 17 });
       }
       throw new Error(`unexpected url ${url}`);
     });
@@ -251,15 +249,29 @@ describe("App", () => {
     expect(screen.getByText("16 / 40")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: /E Keep/ })[0]);
+    expect(screen.getAllByRole("button", { name: /E Confirm/ }).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole("button", { name: /E Confirm/ })[0]);
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/torrents/abc/keep",
-        expect.objectContaining({ method: "POST" }),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ fileIndexes: [0], confirmed: true }),
+        }),
       ),
     );
     await waitFor(() => expect(screen.getByText("17 / 40")).toBeInTheDocument());
+    expect(screen.getByText(/moved/)).toBeInTheDocument();
     expect(screen.getByText("in use")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Alpha Torrent/ })).toHaveAttribute("aria-current", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Next torrent, A" }));
+    expect(await screen.findByRole("button", { name: /Beta Torrent/ })).toHaveAttribute("aria-current", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh queue" }));
+
+    await waitFor(() => expect(screen.getByText("Queue refreshed")).toBeInTheDocument());
+    expect(screen.getByText("17 / 40")).toBeInTheDocument();
   });
 
   it("deletes the active torrent, advances to the next sorted torrent, and shows a toast", async () => {
@@ -487,47 +499,56 @@ describe("App", () => {
     );
   });
 
-  it("shows Keep confirmation for unmarked videos and expires armed confirmation after 8 seconds", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url === "/api/queue") {
-          return Response.json(queueResponse("abc", "Done Torrent"));
-        }
-        if (url === "/api/torrents/abc") {
-          return Response.json({
-            ...torrentDetail("abc", "Done Torrent"),
-            candidates: [
-              ...torrentDetail("abc", "Done Torrent").candidates,
-              {
-                fileIndex: 2,
-                name: "bonus.mp4",
-                extension: "mp4",
-                sizeBytes: 500,
-                path: "/mnt/c/Downloads/Done Torrent/bonus.mp4",
-                playable: true,
-              },
-            ],
-          });
-        }
-        throw new Error(`unexpected url ${url}`);
-      }),
-    );
+  it("confirms before moving marked videos when unmarked videos remain", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/queue") {
+        return Response.json(queueResponse("abc", "Done Torrent"));
+      }
+      if (url === "/api/torrents/abc") {
+        return Response.json({
+          ...torrentDetail("abc", "Done Torrent"),
+          candidates: [
+            ...torrentDetail("abc", "Done Torrent").candidates,
+            {
+              fileIndex: 2,
+              name: "bonus.mp4",
+              extension: "mp4",
+              sizeBytes: 500,
+              path: "/mnt/c/Downloads/Done Torrent/bonus.mp4",
+              playable: true,
+            },
+          ],
+        });
+      }
+      if (url === "/api/torrents/abc/keep" && init?.method === "POST") {
+        return Response.json({ moved: ["/mnt/c/Review/main.mp4"], folderCount: 17 });
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     render(<App />);
     expect((await screen.findAllByText("main.mp4")).length).toBeGreaterThan(0);
 
-    vi.useFakeTimers();
     fireEvent.click(screen.getAllByRole("button", { name: /E Keep/ })[0]);
 
-    expect(screen.getByText("Keep deletes unmarked torrent leftovers.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /E Confirm/ }).length).toBeGreaterThan(0);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "/api/torrents/abc/keep",
+      expect.anything(),
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: /E Confirm/ })[0]);
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(8_000);
-    });
-
-    expect(screen.queryByText("Keep deletes unmarked torrent leftovers.")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/torrents/abc/keep",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ fileIndexes: [0], confirmed: true }),
+        }),
+      ),
+    );
   });
 
   it("does not render a bottom needs-attention section", async () => {

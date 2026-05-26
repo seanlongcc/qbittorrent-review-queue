@@ -24,14 +24,14 @@ The app should feel like a file-review instrument: dense enough for repeated wor
 
 ## Anti-References
 
-Avoid marketing pages, generic SaaS dashboards, decorative card grids, pastel productivity-tool blandness, neon hacker spectacle, glassmorphism as decoration, AI-gradient visuals, playful delete flows, and anything that makes qBittorrent cleanup feel casual.
+Avoid marketing pages, generic SaaS dashboards, decorative card grids, pastel productivity-tool blandness, neon hacker spectacle, glassmorphism as decoration, AI-gradient visuals, playful delete flows, and anything that makes qBittorrent deletion feel casual.
 
 Avoid interfaces that obscure destructive actions, hide file paths when they matter, imply remote persistence, make "remove" ambiguous, or require multi-step ceremony for ordinary navigation. Do not turn queue review into a media gallery, streaming service, or file-manager clone.
 
 ## Design Principles
 
 1. The selected video is the stage. Queue, candidates, paths, and actions support review without burying preview.
-2. Destructive actions must be legible. Reject and cleanup behavior should be obvious before it happens, with inline confirmation near the action.
+2. Destructive actions must be legible. Delete behavior should be obvious before it happens, with inline confirmation near the action.
 3. Keyboard-first does not mean keyboard-only. Pointer controls, focus states, accessible names, and visible command state must match the keyboard model.
 4. File reality matters. Sizes, paths, indexes, candidate sorting, junk grouping, and destination capacity should help the user decide quickly.
 5. Local constraints surface at the moment of action. Folder capacity, path mapping, auth, move failure, and delete failure should block risky workflows with clear recovery.
@@ -41,4 +41,4 @@ Avoid interfaces that obscure destructive actions, hide file paths when they mat
 
 Target WCAG 2.2 AA for contrast, focus states, controls, inline confirmations, keyboard interaction, media controls, and reduced-motion preferences.
 
-The review workflow must remain usable without hover, with keyboard only, with zoomed text, with color-vision differences, and with media preview unavailable. Embedded preview failure should not block external open. Text labels stay on Keep and Reject because the consequences matter.
+The review workflow must remain usable without hover, with keyboard only, with zoomed text, with color-vision differences, and with media preview unavailable. Embedded preview failure should not block external open. Text labels stay on Keep and Delete because the consequences matter.

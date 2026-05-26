@@ -60,6 +60,11 @@ export type KeepPayload = {
   confirmed: boolean;
 };
 
+export type KeepResponse = {
+  moved: string[];
+  folderCount: number;
+};
+
 export type RejectPayload = {
   confirmed: boolean;
 };

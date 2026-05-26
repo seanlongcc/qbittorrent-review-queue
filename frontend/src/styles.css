@@ -923,6 +923,17 @@ tr.marked td:first-child {
   background: var(--green-soft);
 }
 
+.candidate-row.moved {
+  border-color: var(--green);
+  background: color-mix(in oklab, var(--green) 24%, var(--panel) 76%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--green) 34%, transparent);
+}
+
+.candidate-row.moved.selected {
+  border-color: color-mix(in oklab, var(--green) 82%, var(--key));
+  background: color-mix(in oklab, var(--green) 28%, var(--panel-2) 72%);
+}
+
 .candidate-main {
   display: grid;
   gap: 4px;
@@ -954,6 +965,14 @@ tr.marked td:first-child {
   border-radius: var(--radius);
   color: var(--green);
   background: transparent;
+}
+
+.mark-cell:disabled {
+  cursor: default;
+  opacity: 1;
+  color: var(--ink);
+  background: var(--green);
+  border-color: var(--green);
 }
 
 .confirm {

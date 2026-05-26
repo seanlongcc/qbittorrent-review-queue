@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -12,13 +12,12 @@ from backend.app.cleanup import (
     cleanup_failure_hashes,
     cleanup_failure_items,
     forget_cleanup_failure,
-    remember_cleanup_failure,
 )
 from backend.app.config import SettingsUpdate, load_settings, public_settings, save_settings
 from backend.app.media import file_response_for, open_windows_default
 from backend.app.paths import local_filesystem_path, resolve_file_path
 from backend.app.qbt.client import QbtClient, QbtError
-from backend.app.review import CleanupFailedError, KeepRequest, ReviewWorkflowError, keep_torrent, reject_torrent
+from backend.app.review import KeepRequest, ReviewWorkflowError, keep_torrent, reject_torrent
 from backend.app.system_dialog import FolderPickerUnavailable, FolderSelectionCancelled, pick_windows_folder
 from backend.app.torrents import build_torrent_detail, is_video_name, queue_item
 
@@ -213,32 +212,18 @@ def create_app() -> FastAPI:
                         detail=f"File index {invalid_indexes[0]} is not a video candidate",
                     )
                 marked = [files_by_index[index] for index in requested_indexes]
-                if video_indexes.difference(requested_indexes) and not payload.confirmed:
-                    raise HTTPException(status_code=409, detail="Keep requires confirmation")
                 paths = [resolve_file_path(torrent, file_entry, settings).wsl_path for file_entry in marked]
                 session_folder = local_filesystem_path(settings.session_folder)
                 existing_count = _count_existing_videos(session_folder)
                 return keep_torrent(
                     KeepRequest(
-                        torrent_hash=torrent_hash,
+                        confirmed=payload.confirmed,
                         marked_files=paths,
                         session_folder=session_folder,
                         existing_count=existing_count,
                         session_limit=settings.session_folder_limit,
                     ),
-                    client,
                 )
-        except CleanupFailedError as exc:
-            failure = remember_cleanup_failure(
-                torrent_hash,
-                torrent or {"name": torrent_hash},
-                detail=str(exc),
-                moved=[str(path) for path in exc.moved],
-            )
-            return JSONResponse(
-                status_code=202,
-                content={"moved": failure.moved, "cleanupFailed": True},
-            )
         except ReviewWorkflowError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except Exception as exc:

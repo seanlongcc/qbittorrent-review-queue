@@ -45,7 +45,7 @@ Build a local Python web app with FastAPI backend and Vite React frontend. It co
 - Never accept raw local file paths from browser requests.
 - Mark one or more video candidates for Keep.
 - Candidate rows use checkbox-style marking and separate active preview focus.
-- Use a left-hand keyboard model as primary with visible keys `Q E R T`, `A S D F`, and `Z X`: `Q` refreshes, `E` opens External Open, `R` rejects/arms Reject, `T` opens settings, `A`/`S` move previous/next torrent, `Z`/`X` move previous/next candidate, `D` toggles marking, and `F` keeps/arms Keep. `Space` may mirror `D` as a secondary mark shortcut.
+- Use a left-hand keyboard model as primary with visible keys `Q W E T`, `A S D F`: `Q`/`A` move previous/next torrent, `W`/`S` move previous/next candidate, `F` toggles marking, `E` keeps marked candidates, `D` deletes/arms Delete, and `T` opens the active candidate externally.
 - Arrow keys may mirror navigation as secondary shortcuts.
 - Disable review shortcuts while focus is inside text inputs, path fields, or editable settings controls; allow `Esc` to cancel armed states or leave typing context.
 - Default-mark only the largest video candidate when a torrent opens.
@@ -57,21 +57,20 @@ Build a local Python web app with FastAPI backend and Vite React frontend. It co
 - Block Keep and show an inline session-folder field when capacity is reached.
 - Validate rollover folder exists and has Folder Count below capacity before enabling Keep.
 - Do not auto-create rollover folders.
-- Remove kept torrents from qBittorrent and delete leftover content only after selected moves succeed.
-- After Keep moves marked candidates, verify destination files exist, then remove the torrent from qBittorrent with `deleteFiles=true`.
-- If qBittorrent cleanup fails after kept files are verified, keep the moved files, mark the torrent cleanup failed, and do not retry silently.
-- Allow explicit cleanup retry or manual qBittorrent resolution for cleanup-failed torrents.
-- After successful Keep or Reject, remove the torrent from Review Queue and select the next torrent.
+- Keep moves marked candidates only and treats a successful OS move as success if `/mnt/c` visibility lags.
+- Keep requires explicit confirmation before moving marked candidates.
+- After Keep, leave the torrent in the Review Queue and keep it selected.
+- After Keep, moved candidate rows stay visible with a distinct moved state and are no longer markable for another Keep.
+- Preserve the Keep response folder count as the local floor until qBittorrent/session-folder refresh catches up, so stale `/mnt/c` reads cannot lower the visible count.
+- Delete is a separate explicit action after Keep; only Delete calls qBittorrent with `deleteFiles=true`.
+- After successful Delete, remove the torrent from Review Queue and select the next torrent.
 - Do not provide v1 undo for Keep or Reject.
 - Use clear confirmation and post-action status instead of undo.
-- If Keep cleanup fails, move the torrent to attention work and select the next torrent.
 - Show Empty Queue State when no completed torrents remain.
-- Unmarked video candidates are Torrent Leftovers and are deleted during Keep cleanup.
-- Keep does not require confirmation when all video candidates are marked.
-- Keep confirmation is required when multiple video candidates exist and at least one is unmarked: `F` arms, second `F` confirms, `Esc` cancels, and clicking Keep mirrors the same two-click behavior.
-- Armed Keep times out after 8 seconds and cancels when the current torrent or marked candidates change.
+- Unmarked video candidates remain qBittorrent-managed after Keep and are deleted only if the user confirms Delete.
+- Keep confirmation is for moving marked candidates only, not for deleting unmarked content.
 - Reject a torrent only after confirmation, using qBittorrent delete with `deleteFiles=true`.
-- Reject confirmation is a two-step armed flow: `R` arms, second `R` confirms, `Esc` cancels, and clicking Reject mirrors the same two-click behavior.
+- Reject confirmation is a two-step armed flow: `D` arms, second `D` confirms, `Esc` cancels, and clicking Delete mirrors the same two-click behavior.
 - Armed Reject times out after 8 seconds and cancels when the current torrent changes.
 
 ## Assumptions
@@ -93,7 +92,7 @@ Build a local Python web app with FastAPI backend and Vite React frontend. It co
 - `GET /api/torrents/{hash}` returns torrent details and candidate video files.
 - `GET /media/{hash}/{file_index}` streams the selected file for embedded preview.
 - `POST /api/torrents/{hash}/open` opens a selected file in the Windows default player.
-- `POST /api/torrents/{hash}/keep` moves marked candidate files, updates folder count, and deletes torrent leftovers.
+- `POST /api/torrents/{hash}/keep` moves marked candidate files, returns the expected folder count, and leaves the torrent queued.
 - `POST /api/torrents/{hash}/reject` deletes a torrent and files after confirmation.
 - `GET /api/settings` reads local settings.
 - `POST /api/settings` updates qBittorrent connection and session folder settings.
@@ -110,10 +109,8 @@ Build a local Python web app with FastAPI backend and Vite React frontend. It co
 - Reject must be confirmed.
 - Keep must not clean up torrent content after partial move failure.
 - Keep should move marked candidates only, not every video candidate in the torrent.
-- Keep should delete unmarked candidates and junk as torrent leftovers only after kept videos are verified in the session folder.
-- Keep cleanup failure should not roll back or delete kept videos.
-- Cleanup retry must be user-initiated, not automatic.
-- Cleanup retry should be available only for cleanup-failed torrents, not every attention reason.
+- Keep must never call qBittorrent delete with files.
+- Delete is the only review action that removes unmarked candidates and junk as torrent leftovers.
 - Path mapping failures should block file access and explain the expected Windows/WSL mapping.
 - Media/open routes should accept torrent hash plus file index only; no raw path parameters.
 - Do not trust cached torrent detail for file access or destructive actions.

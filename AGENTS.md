@@ -43,10 +43,12 @@ See `docs/agent/product.md` for the full current product brief.
 These rules are core product constraints. Violations can delete user data.
 
 - qBittorrent credentials stay local in `.env`; never commit real credentials.
-- Treat `Reject` as destructive. It must require explicit confirmation before calling qBittorrent delete with `deleteFiles=true`.
-- Treat `Keep` as a two-phase local operation: move marked candidate files first, then remove the torrent and leftovers only after moves succeed.
+- Treat `Reject`/`Delete` as destructive. It must require explicit confirmation before calling qBittorrent delete with `deleteFiles=true`.
+- Treat `Keep` as a confirmed, move-only local operation: after confirmation, move marked candidate files into the session folder and return the expected folder count. Do not block or fail Keep solely because `/mnt/c` visibility lags after a successful move.
 - Never delete a kept file after a successful move.
-- Never call qBittorrent delete-with-files for a Keep action until marked candidates are safely moved.
+- Never call qBittorrent delete-with-files from a Keep action.
+- After Keep, leave the torrent in the queue until the user explicitly presses Delete.
+- After Keep, keep moved candidates visibly marked as moved and preserve the returned folder count until refresh catches up.
 - If a Keep move partially fails, report the failure and do not delete torrent leftovers automatically.
 - Session folders have a 40-video capacity. When the folder is full, block further Keep actions until a new session folder is chosen.
 - Store only local settings needed for this app. Do not persist media metadata beyond what is needed for current review state unless the user approves a persistence design.
