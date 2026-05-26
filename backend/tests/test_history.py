@@ -101,6 +101,11 @@ def test_append_history_event_cleans_event_payload(tmp_path):
             "torrentName": "Show",
             "summary": "Kept 1 video",
             "detail": None,
+            "password": "secret",
+            "token": "secret",
+            "authorization": "Bearer secret",
+            "cookie": "session=secret",
+            "debug": "noisy implementation detail",
             "metadata": {"nested": "value"},
             "tags": ["extra"],
             "files": [
@@ -125,6 +130,11 @@ def test_append_history_event_cleans_event_payload(tmp_path):
     item = load_history(path)[0]
 
     assert "detail" not in item
+    assert "password" not in item
+    assert "token" not in item
+    assert "authorization" not in item
+    assert "cookie" not in item
+    assert "debug" not in item
     assert "metadata" not in item
     assert "tags" not in item
     assert item["files"] == [
@@ -136,6 +146,25 @@ def test_append_history_event_cleans_event_payload(tmp_path):
         },
         {},
     ]
+
+
+def test_append_history_event_rejects_invalid_limit(tmp_path):
+    path = tmp_path / "execution-log.json"
+    event = {
+        "action": "keep",
+        "status": "success",
+        "torrentHash": "abc",
+        "torrentName": "Show",
+        "summary": "Kept 1 video",
+    }
+
+    for limit in (0, -1):
+        try:
+            append_history_event(path, event, limit=limit)
+        except ValueError as error:
+            assert str(error) == "History limit must be at least 1"
+        else:
+            raise AssertionError(f"Expected ValueError for limit={limit}")
 
 
 def test_load_history_recovers_from_missing_or_corrupt_file(tmp_path):

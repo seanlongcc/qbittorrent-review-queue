@@ -8,6 +8,15 @@ from uuid import uuid4
 
 
 HISTORY_LIMIT = 500
+HISTORY_EVENT_KEYS = {
+    "action",
+    "status",
+    "torrentHash",
+    "torrentName",
+    "summary",
+    "detail",
+    "files",
+}
 
 
 def history_file_path(config_local_path: str | Path) -> Path:
@@ -34,6 +43,8 @@ def append_history_event(
     *,
     limit: int = HISTORY_LIMIT,
 ) -> dict[str, Any]:
+    if limit < 1:
+        raise ValueError("History limit must be at least 1")
     history_path = Path(path)
     item = {
         **_clean_event(event),
@@ -51,6 +62,8 @@ def append_history_event(
 def _clean_event(event: dict[str, Any]) -> dict[str, Any]:
     cleaned: dict[str, Any] = {}
     for key, value in event.items():
+        if key not in HISTORY_EVENT_KEYS:
+            continue
         if value is None:
             continue
         if key == "files" and isinstance(value, list):
