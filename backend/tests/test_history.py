@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 import json
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from backend.app.history import append_history_event, history_file_path, load_history
+
+
+def assert_generated_metadata(item):
+    assert re.fullmatch(r"[0-9a-f]{32}", item["id"])
+    assert item["timestamp"].endswith("Z")
+    parsed_timestamp = datetime.fromisoformat(
+        item["timestamp"].replace("Z", "+00:00")
+    )
+    assert parsed_timestamp.tzinfo == UTC
 
 
 def test_history_path_lives_beside_config_local(tmp_path):
@@ -43,9 +54,30 @@ def test_append_history_event_persists_newest_first(tmp_path):
     items = load_history(path)
 
     assert [item["id"] for item in items] == [second["id"], first["id"]]
-    assert items[0]["timestamp"].endswith("Z")
+    assert_generated_metadata(first)
+    assert_generated_metadata(second)
+    assert_generated_metadata(items[0])
+    assert_generated_metadata(items[1])
     assert items[0]["action"] == "delete"
     assert items[1]["files"][0]["destinationPath"] == "/mnt/c/Review/main.mkv"
+
+
+def test_append_history_event_creates_parent_directories(tmp_path):
+    path = tmp_path / "new" / "nested" / "execution-log.json"
+
+    item = append_history_event(
+        path,
+        {
+            "action": "keep",
+            "status": "success",
+            "torrentHash": "abc",
+            "torrentName": "Show",
+            "summary": "Kept 1 video",
+        },
+    )
+
+    assert path.exists()
+    assert load_history(path) == [item]
 
 
 def test_append_history_event_trims_to_limit(tmp_path):
@@ -285,11 +317,18 @@ def test_load_history_sanitizes_persisted_items(tmp_path):
                         "summary": "Long id",
                     },
                     {
-                        "id": "bad-timestamp",
+                        "id": "123456789abcdef0123456789abcdef0",
                         "timestamp": "bad",
                         "action": "keep",
                         "status": "success",
                         "summary": "Bad timestamp",
+                    },
+                    {
+                        "id": "23456789abcdef0123456789abcdef01",
+                        "timestamp": "2026-05-26T12:00:00+00:00",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Non-Z timestamp",
                     },
                     {
                         "id": "failure-success",
