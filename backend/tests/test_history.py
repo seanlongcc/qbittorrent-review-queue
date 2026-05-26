@@ -143,9 +143,119 @@ def test_append_history_event_cleans_event_payload(tmp_path):
             "destinationPath": "/mnt/c/Review/main.mkv",
             "fileIndex": 2,
             "name": "main.mkv",
-        },
-        {},
+        }
     ]
+
+
+def test_load_history_sanitizes_persisted_items(tmp_path):
+    path = tmp_path / "execution-log.json"
+    path.write_text(
+        json.dumps(
+            {
+                "items": [
+                    {
+                        "id": "valid-id",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "torrentHash": "abc",
+                        "torrentName": "Show",
+                        "summary": "Kept 1 video",
+                        "detail": "Moved file",
+                        "password": "secret",
+                        "token": "secret",
+                        "debug": "noise",
+                        "files": [
+                            {
+                                "sourcePath": "/mnt/c/Downloads/main.mkv",
+                                "destinationPath": "/mnt/c/Review/main.mkv",
+                                "fileIndex": 1,
+                                "name": "main.mkv",
+                                "extra": "drop me",
+                            },
+                            {
+                                "sourcePath": 123,
+                                "destinationPath": 456,
+                                "fileIndex": True,
+                                "name": 789,
+                            },
+                            "invalid",
+                        ],
+                    },
+                    {
+                        "id": "bad-action",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "download",
+                        "status": "success",
+                        "summary": "Bad action",
+                    },
+                    {
+                        "id": "bad-status",
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "done",
+                        "summary": "Bad status",
+                    },
+                    {
+                        "id": 123,
+                        "timestamp": "2026-05-26T12:00:00Z",
+                        "action": "keep",
+                        "status": "success",
+                        "summary": "Bad id",
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert load_history(path) == [
+        {
+            "id": "valid-id",
+            "timestamp": "2026-05-26T12:00:00Z",
+            "action": "keep",
+            "status": "success",
+            "torrentHash": "abc",
+            "torrentName": "Show",
+            "summary": "Kept 1 video",
+            "detail": "Moved file",
+            "files": [
+                {
+                    "sourcePath": "/mnt/c/Downloads/main.mkv",
+                    "destinationPath": "/mnt/c/Review/main.mkv",
+                    "fileIndex": 1,
+                    "name": "main.mkv",
+                }
+            ],
+        }
+    ]
+
+
+def test_append_history_event_rejects_invalid_action_or_status(tmp_path):
+    path = tmp_path / "execution-log.json"
+
+    invalid_events = [
+        {
+            "action": "download",
+            "status": "success",
+            "summary": "Bad action",
+        },
+        {
+            "action": "keep",
+            "status": "done",
+            "summary": "Bad status",
+        },
+    ]
+
+    for event in invalid_events:
+        try:
+            append_history_event(path, event)
+        except ValueError as error:
+            assert str(error) == "History event action or status is invalid"
+        else:
+            raise AssertionError(f"Expected ValueError for event={event}")
+        assert not path.exists()
+        assert load_history(path) == []
 
 
 def test_append_history_event_rejects_invalid_limit(tmp_path):
