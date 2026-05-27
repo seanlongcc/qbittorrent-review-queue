@@ -423,6 +423,30 @@ def test_reject_still_deletes_when_delete_history_file_lookup_fails(monkeypatch,
     assert "files" not in item
 
 
+def test_reject_skips_malformed_delete_history_files(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[object(), {"index": 1, "name": "main.mkv", "size": 100}])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/reject", json={"confirmed": True})
+
+    assert response.status_code == 200
+    assert fake_qbt.deleted == [("abc", True)]
+    item = read_history_file(tmp_path)[0]
+    assert item["summary"] == "Deleted torrent and 1 file"
+    assert item["files"] == [
+        {
+            "sourcePath": str(downloads / "Show" / "main.mkv"),
+            "fileIndex": 1,
+            "name": "main.mkv",
+        }
+    ]
+
+
 def test_failed_confirmed_reject_logs_failure(monkeypatch, tmp_path):
     clear_cleanup_failures()
     downloads = tmp_path / "downloads"

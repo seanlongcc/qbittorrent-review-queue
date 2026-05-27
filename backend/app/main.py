@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -97,6 +98,14 @@ def _append_history_safely(event: dict[str, Any]) -> None:
         return
 
 
+def _append_history_factory_safely(build_event: Callable[[], dict[str, Any]]) -> None:
+    try:
+        event = build_event()
+    except Exception:
+        return
+    _append_history_safely(event)
+
+
 def _torrent_name(torrent: dict[str, Any] | None) -> str | None:
     if not torrent:
         return None
@@ -174,11 +183,13 @@ def _keep_success_event(
 
 def _history_file_entries(
     torrent: dict[str, Any],
-    files: list[dict[str, Any]],
+    files: list[Any],
     settings: AppSettings,
 ) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for fallback, file_entry in enumerate(files):
+        if not isinstance(file_entry, dict):
+            continue
         try:
             file_index = int(file_entry.get("index", fallback))
         except (TypeError, ValueError):
@@ -189,7 +200,7 @@ def _history_file_entries(
         }
         try:
             entry["sourcePath"] = str(resolve_file_path(torrent, file_entry, settings).wsl_path)
-        except (TypeError, ValueError):
+        except Exception:
             pass
         entries.append(entry)
     return entries
@@ -198,7 +209,7 @@ def _history_file_entries(
 def _delete_success_event(
     torrent_hash: str,
     torrent: dict[str, Any],
-    files: list[dict[str, Any]],
+    files: list[Any],
     settings: AppSettings,
 ) -> dict[str, Any]:
     deleted_files = _history_file_entries(torrent, files, settings)
@@ -219,7 +230,7 @@ def _delete_success_event(
     return event
 
 
-def _files_for_delete_history(client: QbtClient, torrent_hash: str) -> list[dict[str, Any]]:
+def _files_for_delete_history(client: QbtClient, torrent_hash: str) -> list[Any]:
     try:
         return client.torrent_files(torrent_hash)
     except Exception:
@@ -438,14 +449,16 @@ def create_app() -> FastAPI:
         if not payload.confirmed:
             raise HTTPException(status_code=409, detail="Delete requires confirmation")
         torrent: dict[str, Any] | None = None
-        files: list[dict[str, Any]] = []
+        files: list[Any] = []
         try:
             settings = load_settings()
             with _qbt() as client:
                 torrent = _find_torrent(client, torrent_hash)
                 files = _files_for_delete_history(client, torrent_hash)
                 reject_torrent(torrent_hash, client, confirmed=payload.confirmed)
-            _append_history_safely(_delete_success_event(torrent_hash, torrent, files, settings))
+            _append_history_factory_safely(
+                lambda: _delete_success_event(torrent_hash, torrent, files, settings)
+            )
             return {"ok": True}
         except ReviewWorkflowError as exc:
             if payload.confirmed and torrent is not None:
