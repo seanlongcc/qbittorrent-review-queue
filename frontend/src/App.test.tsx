@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 
@@ -40,6 +40,9 @@ describe("App", () => {
               connected: true,
             },
           });
+        }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
         }
         if (url === "/api/torrents/abc") {
           return Response.json({
@@ -91,6 +94,44 @@ describe("App", () => {
     });
   });
 
+  it("loads execution history into the workbench", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === "/api/queue") {
+          return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/history") {
+          return Response.json({
+            items: [
+              {
+                id: "event-1",
+                timestamp: "2026-05-26T20:00:00Z",
+                action: "keep",
+                status: "success",
+                torrentHash: "abc",
+                torrentName: "Done Torrent",
+                summary: "Kept 1 video",
+                files: [{ destinationPath: "/mnt/c/Review/main.mp4", name: "main.mp4" }],
+              },
+            ],
+          });
+        }
+        if (url === "/api/torrents/abc") {
+          return Response.json(torrentDetail("abc", "Done Torrent"));
+        }
+        throw new Error(`unexpected url ${url}`);
+      }),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByLabelText("Execution history")).toBeInTheDocument();
+    expect(screen.getByText("Kept 1 video")).toBeInTheDocument();
+    expect(screen.getByText("/mnt/c/Review/main.mp4")).toBeInTheDocument();
+  });
+
   it("selects the top torrent under the default newest-added sort", async () => {
     vi.stubGlobal(
       "fetch",
@@ -104,6 +145,9 @@ describe("App", () => {
               queueTorrent("new", "Newer Torrent", 200),
             ],
           });
+        }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
         }
         if (url === "/api/torrents/old") {
           return Response.json(torrentDetail("old", "Older Torrent"));
@@ -130,6 +174,9 @@ describe("App", () => {
         if (url === "/api/queue") {
           queueCalls += 1;
           return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
         }
         if (url === "/api/torrents/abc") {
           return Response.json(torrentDetail("abc", "Done Torrent"));
@@ -167,6 +214,9 @@ describe("App", () => {
           queueCalls += 1;
           return Response.json(queueResponse("abc", "Done Torrent"));
         }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
+        }
         if (url === "/api/torrents/abc") {
           return Response.json(torrentDetail("abc", "Done Torrent"));
         }
@@ -193,6 +243,9 @@ describe("App", () => {
         if (url === "/api/queue") {
           queueCalls += 1;
           return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
         }
         if (url === "/api/torrents/abc") {
           return Response.json(torrentDetail("abc", "Done Torrent"));
@@ -227,6 +280,24 @@ describe("App", () => {
             ...queueResponse("abc", "Alpha Torrent").settings,
             folderCount: 16,
           },
+        });
+      }
+      if (url === "/api/history") {
+        return Response.json({
+          items: kept
+            ? [
+                {
+                  id: "keep-1",
+                  timestamp: "2026-05-26T20:00:00Z",
+                  action: "keep",
+                  status: "success",
+                  torrentHash: "abc",
+                  torrentName: "Alpha Torrent",
+                  summary: "Kept 1 video",
+                  files: [{ destinationPath: "/mnt/c/Review/main.mp4", name: "main.mp4" }],
+                },
+              ]
+            : [],
         });
       }
       if (url === "/api/torrents/abc") {
@@ -264,6 +335,7 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("17 / 40")).toBeInTheDocument());
     expect(screen.getByText(/moved/)).toBeInTheDocument();
     expect(screen.getByText("in use")).toBeInTheDocument();
+    expect(within(await screen.findByLabelText("Execution history")).getByText("Kept 1 video")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /Alpha Torrent/ })).toHaveAttribute("aria-current", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "Next torrent, A" }));
@@ -284,6 +356,24 @@ describe("App", () => {
           torrents: deleted
             ? [queueTorrent("def", "Beta Torrent", 200)]
             : [queueTorrent("abc", "Alpha Torrent", 300), queueTorrent("def", "Beta Torrent", 200)],
+        });
+      }
+      if (url === "/api/history") {
+        return Response.json({
+          items: deleted
+            ? [
+                {
+                  id: "delete-1",
+                  timestamp: "2026-05-26T20:00:00Z",
+                  action: "delete",
+                  status: "success",
+                  torrentHash: "abc",
+                  torrentName: "Alpha Torrent",
+                  summary: "Deleted torrent and files",
+                  detail: "qBittorrent deleteFiles=true",
+                },
+              ]
+            : [],
         });
       }
       if (url === "/api/torrents/abc") {
@@ -315,7 +405,10 @@ describe("App", () => {
         }),
       ),
     );
-    expect(await screen.findByText("Deleted torrent and files")).toBeInTheDocument();
+    expect((await screen.findAllByText("Deleted torrent and files")).length).toBeGreaterThan(0);
+    expect(
+      within(await screen.findByLabelText("Execution history")).getByText("qBittorrent deleteFiles=true"),
+    ).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: /Beta Torrent/ })).toHaveAttribute("aria-current", "true"));
   });
 
@@ -325,6 +418,9 @@ describe("App", () => {
       const url = String(input);
       if (url === "/api/queue") {
         return Response.json(queueResponse("abc", "Done Torrent"));
+      }
+      if (url === "/api/history") {
+        return Response.json({ items: [] });
       }
       if (url === "/api/torrents/abc") {
         return Response.json(torrentDetail("abc", "Done Torrent"));
@@ -361,6 +457,9 @@ describe("App", () => {
         if (url === "/api/queue") {
           return Response.json(queueResponse("abc", "Done Torrent"));
         }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
+        }
         if (url === "/api/torrents/abc") {
           return Response.json(torrentDetail("abc", "Done Torrent"));
         }
@@ -387,6 +486,9 @@ describe("App", () => {
         const url = String(input);
         if (url === "/api/queue") {
           return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
         }
         if (url === "/api/torrents/abc") {
           return Response.json(torrentDetail("abc", "Done Torrent"));
@@ -416,6 +518,9 @@ describe("App", () => {
         const url = String(input);
         if (url === "/api/queue") {
           return Response.json(queueResponse("abc", "Done Torrent"));
+        }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
         }
         if (url === "/api/torrents/abc") {
           return Response.json(torrentDetail("abc", "Done Torrent"));
@@ -447,6 +552,9 @@ describe("App", () => {
         if (url === "/api/queue") {
           return Response.json(queueResponse("abc", "Done Torrent"));
         }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
+        }
         if (url === "/api/torrents/abc") {
           return Response.json(torrentDetail("abc", "Done Torrent"));
         }
@@ -477,6 +585,9 @@ describe("App", () => {
         if (url === "/api/queue") {
           return Response.json(queueResponse("abc", "Done Torrent"));
         }
+        if (url === "/api/history") {
+          return Response.json({ items: [] });
+        }
         if (url === "/api/torrents/abc") {
           return Response.json(torrentDetail("abc", "Done Torrent"));
         }
@@ -504,6 +615,9 @@ describe("App", () => {
       const url = String(input);
       if (url === "/api/queue") {
         return Response.json(queueResponse("abc", "Done Torrent"));
+      }
+      if (url === "/api/history") {
+        return Response.json({ items: [] });
       }
       if (url === "/api/torrents/abc") {
         return Response.json({
@@ -573,6 +687,9 @@ describe("App", () => {
             },
           ],
         });
+      }
+      if (url === "/api/history") {
+        return Response.json({ items: [] });
       }
       if (url === "/api/torrents/abc") {
         return Response.json(torrentDetail("abc", "Done Torrent"));

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import { getQueue, getTorrentDetail, keepTorrent, openTorrentFile, rejectTorrent } from "./api/client";
-import type { QueueResponse } from "./domain/types";
+import { getHistory, getQueue, getTorrentDetail, keepTorrent, openTorrentFile, rejectTorrent } from "./api/client";
+import type { ExecutionHistoryItem, QueueResponse } from "./domain/types";
 import {
   CandidateTable,
   MediaStage,
@@ -11,6 +11,7 @@ import {
   ToastViewport,
 } from "./review/Workbench";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { HistoryPanel } from "./review/HistoryPanel";
 import { commandFromKey, type ReviewCommand } from "./review/keyboard";
 import { sortReviewableTorrents, type QueueSort } from "./review/queueSort";
 import {
@@ -30,6 +31,7 @@ export function App() {
   const [state, dispatch] = useReducer(reviewReducer, undefined, () => createInitialState());
   const [queueSort, setQueueSort] = useState<QueueSort>({ field: "added", direction: "desc" });
   const [previewMuted, setPreviewMuted] = useState(false);
+  const [historyItems, setHistoryItems] = useState<ExecutionHistoryItem[]>([]);
   const reviewableTorrents = getReviewableTorrents(state);
   const sortedReviewableTorrents = useMemo(
     () => sortReviewableTorrents(reviewableTorrents, queueSort),
@@ -59,9 +61,22 @@ export function App() {
     }
   }, []);
 
+  const refreshHistory = useCallback(async () => {
+    try {
+      const response = await getHistory();
+      setHistoryItems(response.items);
+    } catch (error) {
+      dispatch({ type: "actionFailed", message: errorMessage(error) });
+    }
+  }, []);
+
   useEffect(() => {
     void refreshQueue();
   }, [refreshQueue]);
+
+  useEffect(() => {
+    void refreshHistory();
+  }, [refreshHistory]);
 
   useEffect(() => {
     const topTorrent = sortedReviewableTorrents[0];
@@ -137,11 +152,12 @@ export function App() {
         folderCount: result.folderCount,
       });
       dispatch({ type: "actionFinished", notice: `Kept ${marked.length} video${marked.length === 1 ? "" : "s"}` });
+      await refreshHistory();
       await refreshQueue();
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
-  }, [refreshQueue, state]);
+  }, [refreshHistory, refreshQueue, state]);
 
   const runReject = useCallback(async () => {
     const torrent = getActiveTorrent(state);
@@ -162,11 +178,12 @@ export function App() {
       await rejectTorrent(torrent.hash, { confirmed: true });
       dispatch({ type: "actionFinished", notice: "Deleted torrent and files" });
       dispatch({ type: "torrentRemoved", hash: torrent.hash, nextHash });
+      await refreshHistory();
       await refreshQueue();
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
-  }, [refreshQueue, sortedReviewableTorrents, state]);
+  }, [refreshHistory, refreshQueue, sortedReviewableTorrents, state]);
 
   const runOpenExternal = useCallback(async () => {
     const torrent = getActiveTorrent(state);
@@ -183,10 +200,11 @@ export function App() {
     try {
       await openTorrentFile(torrent.hash, candidate.fileIndex);
       dispatch({ type: "actionFinished", notice: `Opened ${candidate.name}` });
+      await refreshHistory();
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
-  }, [state]);
+  }, [refreshHistory, state]);
 
   const handleCommand = useCallback(
     (command: ReviewCommand) => {
@@ -298,6 +316,7 @@ export function App() {
               onToggleMark={(fileIndex) => dispatch({ type: "toggleMark", fileIndex })}
               onCommand={handleCommand}
             />
+            <HistoryPanel items={historyItems} />
           </section>
         </section>
         {state.settingsOpen ? (
