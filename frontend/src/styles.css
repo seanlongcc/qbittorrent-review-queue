@@ -90,7 +90,7 @@ tr:focus-visible {
   height: 100vh;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   overflow: hidden;
   background: var(--bg);
 }
@@ -217,8 +217,7 @@ tr:focus-visible {
   white-space: nowrap;
 }
 
-.qbt-toolbar,
-.qbt-statusbar {
+.qbt-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -638,7 +637,6 @@ tr.selected {
 
 .meta,
 .path,
-.qbt-statusbar,
 .action-note {
   color: var(--muted-text);
   font-size: 0.75rem;
@@ -648,7 +646,7 @@ tr.selected {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(220px, 1fr) auto minmax(120px, 244px) minmax(0, 180px);
+  grid-template-rows: minmax(220px, 1fr) auto minmax(180px, 360px);
   overflow: hidden;
   background: var(--panel);
 }
@@ -1228,12 +1226,6 @@ tr.marked td:first-child {
   margin-left: 10px;
 }
 
-.qbt-statusbar {
-  justify-content: space-between;
-  border-top: 1px solid var(--line);
-  border-bottom: 0;
-}
-
 @media (max-width: 980px) {
   .qbt-shell {
     width: 100vw;
@@ -1297,9 +1289,6 @@ tr.marked td:first-child {
     overflow: visible;
   }
 
-  .qbt-statusbar {
-    display: grid;
-  }
 }
 
 @media (max-width: 520px) {

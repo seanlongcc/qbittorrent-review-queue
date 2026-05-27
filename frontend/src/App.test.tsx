@@ -127,7 +127,8 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByLabelText("Execution history")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: /History 1/ }));
+    expect(screen.getByLabelText("Execution history")).toBeInTheDocument();
     expect(screen.getByText("Kept 1 video")).toBeInTheDocument();
     expect(screen.getByText("/mnt/c/Review/main.mp4")).toBeInTheDocument();
   });
@@ -335,7 +336,8 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByText("17 / 40")).toBeInTheDocument());
     expect(screen.getByText(/moved/)).toBeInTheDocument();
     expect(screen.getByText("in use")).toBeInTheDocument();
-    expect(within(await screen.findByLabelText("Execution history")).getByText("Kept 1 video")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: /History 1/ }));
+    expect(within(screen.getByLabelText("Execution history")).getByText("Kept 1 video")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /Alpha Torrent/ })).toHaveAttribute("aria-current", "true");
 
     fireEvent.click(screen.getByRole("button", { name: "Next torrent, A" }));
@@ -463,9 +465,8 @@ describe("App", () => {
       ),
     );
     expect((await screen.findAllByText("Deleted torrent and files")).length).toBeGreaterThan(0);
-    expect(
-      within(await screen.findByLabelText("Execution history")).getByText("qBittorrent deleteFiles=true"),
-    ).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: /History 1/ }));
+    expect(within(screen.getByLabelText("Execution history")).getByText("qBittorrent deleteFiles=true")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: /Beta Torrent/ })).toHaveAttribute("aria-current", "true"));
   });
 

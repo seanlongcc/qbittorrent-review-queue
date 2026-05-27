@@ -40,8 +40,8 @@ export function TitleBar({
   onSettings: () => void;
 }) {
   const apiLabel = settings.connected
-    ? (refreshing ? "API refreshing" : "API connected")
-    : "API disconnected";
+    ? (refreshing ? "Connecting" : "Connected")
+    : (refreshing ? "Connecting" : "Disconnected");
   return (
     <header className="qbt-titlebar">
       <div className="qbt-brand">
@@ -49,7 +49,7 @@ export function TitleBar({
       </div>
       <div className="qbt-title-actions">
         <span className="qbt-url-pill">{settings.qbtBaseUrl}</span>
-        <span className={settings.connected ? "api-pill" : "api-pill offline"} role="status">
+        <span className={refreshing ? "api-pill connecting" : settings.connected ? "api-pill" : "api-pill offline"}>
           <span className="api-dot" aria-hidden="true" />
           {apiLabel}
         </span>

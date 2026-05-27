@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { getHistory, getQueue, getTorrentDetail, keepTorrent, openTorrentFile, rejectTorrent } from "./api/client";
 import type { ExecutionHistoryItem, QueueResponse } from "./domain/types";
 import {
-  CandidateTable,
   MediaStage,
   QueueSidebar,
   ReviewCommandBar,
@@ -11,7 +10,7 @@ import {
   ToastViewport,
 } from "./review/Workbench";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { HistoryPanel } from "./review/HistoryPanel";
+import { ReviewPanelTabs } from "./review/ReviewPanelTabs";
 import { commandFromKey, type ReviewCommand } from "./review/keyboard";
 import { sortReviewableTorrents, type QueueSort } from "./review/queueSort";
 import {
@@ -304,7 +303,7 @@ export function App() {
               hasTorrent={Boolean(activeTorrent)}
               onCommand={handleCommand}
             />
-            <CandidateTable
+            <ReviewPanelTabs
               torrent={activeTorrent}
               activeCandidate={activeCandidate}
               markedIndexes={markedIndexes}
@@ -312,11 +311,11 @@ export function App() {
               armedAction={state.armedAction}
               busy={state.actionBusy}
               activeMissing={activeMissing}
+              historyItems={historyItems}
               onSelectCandidate={(index) => dispatch({ type: "selectCandidate", index })}
               onToggleMark={(fileIndex) => dispatch({ type: "toggleMark", fileIndex })}
               onCommand={handleCommand}
             />
-            <HistoryPanel items={historyItems} />
           </section>
         </section>
         {state.settingsOpen ? (
