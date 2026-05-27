@@ -2,6 +2,7 @@ import type {
   CleanupRetryPayload,
   FolderPickPayload,
   FolderPickResponse,
+  HistoryResponse,
   KeepPayload,
   KeepResponse,
   QueueResponse,
@@ -39,6 +40,10 @@ export function getQueue(): Promise<QueueResponse> {
 
 export function getTorrentDetail(hash: string): Promise<ReviewTorrent> {
   return apiRequest<ReviewTorrent>(`/api/torrents/${encodeURIComponent(hash)}`);
+}
+
+export function getHistory(): Promise<HistoryResponse> {
+  return apiRequest<HistoryResponse>("/api/history");
 }
 
 export function keepTorrent(hash: string, payload: KeepPayload): Promise<KeepResponse> {

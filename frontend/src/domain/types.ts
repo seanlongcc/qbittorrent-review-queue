@@ -55,6 +55,33 @@ export type QueueResponse = {
   settings: LocalSettings;
 };
 
+export type ExecutionHistoryAction = "keep" | "delete" | "open_external" | "failure";
+
+export type ExecutionHistoryStatus = "success" | "failed";
+
+export type ExecutionHistoryFile = {
+  sourcePath?: string;
+  destinationPath?: string;
+  fileIndex?: number;
+  name?: string;
+};
+
+export type ExecutionHistoryItem = {
+  id: string;
+  timestamp: string;
+  action: ExecutionHistoryAction;
+  status: ExecutionHistoryStatus;
+  torrentHash?: string;
+  torrentName?: string;
+  summary: string;
+  files?: ExecutionHistoryFile[];
+  detail?: string;
+};
+
+export type HistoryResponse = {
+  items: ExecutionHistoryItem[];
+};
+
 export type KeepPayload = {
   fileIndexes: number[];
   confirmed: boolean;
