@@ -366,7 +366,12 @@ def test_reject_logs_confirmed_delete(monkeypatch, tmp_path):
     downloads = tmp_path / "downloads"
     session = tmp_path / "session"
     session.mkdir()
-    fake_qbt = FakeQbt(files=[])
+    fake_qbt = FakeQbt(
+        files=[
+            {"index": 0, "name": "main.mkv", "size": 100, "progress": 1},
+            {"index": 1, "name": "Extras\\trailer.mp4", "size": 20, "progress": 1},
+        ]
+    )
     configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
     client = TestClient(create_app())
 
@@ -381,8 +386,41 @@ def test_reject_logs_confirmed_delete(monkeypatch, tmp_path):
     assert item["status"] == "success"
     assert item["torrentHash"] == "abc"
     assert item["torrentName"] == "Show"
-    assert item["summary"] == "Deleted torrent"
+    assert item["summary"] == "Deleted torrent and 2 files"
     assert item["detail"] == "qBittorrent deleteFiles=true"
+    assert item["files"] == [
+        {
+            "sourcePath": str(downloads / "Show" / "main.mkv"),
+            "fileIndex": 0,
+            "name": "main.mkv",
+        },
+        {
+            "sourcePath": str(downloads / "Show" / "Extras" / "trailer.mp4"),
+            "fileIndex": 1,
+            "name": "Extras\\trailer.mp4",
+        },
+    ]
+
+
+def test_reject_still_deletes_when_delete_history_file_lookup_fails(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[])
+    fake_qbt.fail_files = True
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/reject", json={"confirmed": True})
+
+    assert response.status_code == 200
+    assert fake_qbt.deleted == [("abc", True)]
+    item = read_history_file(tmp_path)[0]
+    assert item["action"] == "delete"
+    assert item["status"] == "success"
+    assert item["summary"] == "Deleted torrent"
+    assert "files" not in item
 
 
 def test_failed_confirmed_reject_logs_failure(monkeypatch, tmp_path):
@@ -476,6 +514,7 @@ class FakeQbt:
         self.files = files
         self.deleted: list[tuple[str, bool]] = []
         self.fail_delete = False
+        self.fail_files = False
 
     def __enter__(self):
         return self
@@ -497,6 +536,8 @@ class FakeQbt:
 
     def torrent_files(self, torrent_hash):
         assert torrent_hash == "abc"
+        if self.fail_files:
+            raise RuntimeError("file list failed")
         return self.files
 
     def delete_torrent(self, torrent_hash, *, delete_files):

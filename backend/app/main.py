@@ -13,7 +13,7 @@ from backend.app.cleanup import (
     cleanup_failure_items,
     forget_cleanup_failure,
 )
-from backend.app.config import SettingsUpdate, load_settings, public_settings, save_settings
+from backend.app.config import AppSettings, SettingsUpdate, load_settings, public_settings, save_settings
 from backend.app.history import append_history_event, history_file_path, load_history
 from backend.app.media import file_response_for, open_windows_default
 from backend.app.paths import local_filesystem_path, resolve_file_path
@@ -172,15 +172,59 @@ def _keep_success_event(
     }
 
 
-def _delete_success_event(torrent_hash: str, torrent: dict[str, Any]) -> dict[str, Any]:
-    return {
+def _history_file_entries(
+    torrent: dict[str, Any],
+    files: list[dict[str, Any]],
+    settings: AppSettings,
+) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for fallback, file_entry in enumerate(files):
+        try:
+            file_index = int(file_entry.get("index", fallback))
+        except (TypeError, ValueError):
+            file_index = fallback
+        entry: dict[str, Any] = {
+            "fileIndex": file_index,
+            "name": str(file_entry.get("name") or ""),
+        }
+        try:
+            entry["sourcePath"] = str(resolve_file_path(torrent, file_entry, settings).wsl_path)
+        except (TypeError, ValueError):
+            pass
+        entries.append(entry)
+    return entries
+
+
+def _delete_success_event(
+    torrent_hash: str,
+    torrent: dict[str, Any],
+    files: list[dict[str, Any]],
+    settings: AppSettings,
+) -> dict[str, Any]:
+    deleted_files = _history_file_entries(torrent, files, settings)
+    event: dict[str, Any] = {
         "action": "delete",
         "status": "success",
         "torrentHash": torrent_hash,
         "torrentName": _torrent_name(torrent),
-        "summary": "Deleted torrent",
+        "summary": (
+            f"Deleted torrent and {len(deleted_files)} {'file' if len(deleted_files) == 1 else 'files'}"
+            if deleted_files
+            else "Deleted torrent"
+        ),
         "detail": "qBittorrent deleteFiles=true",
     }
+    if deleted_files:
+        event["files"] = deleted_files
+    return event
+
+
+def _files_for_delete_history(client: QbtClient, torrent_hash: str) -> list[dict[str, Any]]:
+    try:
+        return client.torrent_files(torrent_hash)
+    except Exception:
+        # History enrichment must not block a confirmed delete.
+        return []
 
 
 def _append_workflow_failure(
@@ -394,11 +438,14 @@ def create_app() -> FastAPI:
         if not payload.confirmed:
             raise HTTPException(status_code=409, detail="Delete requires confirmation")
         torrent: dict[str, Any] | None = None
+        files: list[dict[str, Any]] = []
         try:
+            settings = load_settings()
             with _qbt() as client:
                 torrent = _find_torrent(client, torrent_hash)
+                files = _files_for_delete_history(client, torrent_hash)
                 reject_torrent(torrent_hash, client, confirmed=payload.confirmed)
-            _append_history_safely(_delete_success_event(torrent_hash, torrent))
+            _append_history_safely(_delete_success_event(torrent_hash, torrent, files, settings))
             return {"ok": True}
         except ReviewWorkflowError as exc:
             if payload.confirmed and torrent is not None:
