@@ -104,22 +104,98 @@ def _torrent_name(torrent: dict[str, Any] | None) -> str | None:
     return str(name) if name else None
 
 
+def _workflow_failure_event(
+    action: str,
+    torrent_hash: str,
+    torrent: dict[str, Any] | None,
+    detail: str,
+) -> dict[str, Any]:
+    label = "Delete" if action == "delete" else "Keep" if action == "keep" else "Open external"
+    return {
+        "action": action,
+        "status": "failed",
+        "torrentHash": torrent_hash,
+        "torrentName": _torrent_name(torrent),
+        "summary": f"{label} failed",
+        "detail": detail,
+    }
+
+
+def _open_external_success_event(
+    torrent_hash: str,
+    torrent: dict[str, Any],
+    file_entry: dict[str, Any],
+    file_index: int,
+    source_path: Path,
+) -> dict[str, Any]:
+    return {
+        "action": "open_external",
+        "status": "success",
+        "torrentHash": torrent_hash,
+        "torrentName": _torrent_name(torrent),
+        "summary": f"Opened {file_entry.get('name') or 'file'} externally",
+        "files": [
+            {
+                "sourcePath": str(source_path),
+                "fileIndex": file_index,
+                "name": str(file_entry.get("name") or ""),
+            }
+        ],
+    }
+
+
+def _keep_success_event(
+    torrent_hash: str,
+    torrent: dict[str, Any],
+    paths: list[Path],
+    moved: list[str],
+    requested_indexes: list[int],
+    marked: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "action": "keep",
+        "status": "success",
+        "torrentHash": torrent_hash,
+        "torrentName": _torrent_name(torrent),
+        "summary": f"Kept {len(moved)} {'video' if len(moved) == 1 else 'videos'}",
+        "files": [
+            {
+                "sourcePath": str(source),
+                "destinationPath": destination,
+                "fileIndex": file_index,
+                "name": str(file_entry.get("name") or ""),
+            }
+            for source, destination, file_index, file_entry in zip(
+                paths, moved, requested_indexes, marked, strict=False
+            )
+        ],
+    }
+
+
+def _delete_success_event(torrent_hash: str, torrent: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "action": "delete",
+        "status": "success",
+        "torrentHash": torrent_hash,
+        "torrentName": _torrent_name(torrent),
+        "summary": "Deleted torrent",
+        "detail": "qBittorrent deleteFiles=true",
+    }
+
+
 def _append_workflow_failure(
     action: str,
     torrent_hash: str,
     torrent: dict[str, Any] | None,
     detail: str,
 ) -> None:
-    label = "Delete" if action == "delete" else "Keep" if action == "keep" else "Open external"
     _append_history_safely(
-        {
-            "action": action,
-            "status": "failed",
-            "torrentHash": torrent_hash,
-            "torrentName": _torrent_name(torrent),
-            "summary": f"{label} failed",
-            "detail": detail,
-        }
+        _workflow_failure_event(
+            action=action,
+            torrent_hash=torrent_hash,
+            torrent=torrent,
+            detail=detail,
+        )
     )
 
 
@@ -227,20 +303,13 @@ def create_app() -> FastAPI:
             resolved = resolve_file_path(torrent, file_entry, settings)
             open_windows_default(resolved.windows_path)
             _append_history_safely(
-                {
-                    "action": "open_external",
-                    "status": "success",
-                    "torrentHash": torrent_hash,
-                    "torrentName": _torrent_name(torrent),
-                    "summary": f"Opened {file_entry.get('name') or 'file'} externally",
-                    "files": [
-                        {
-                            "sourcePath": str(resolved.wsl_path),
-                            "fileIndex": payload.fileIndex,
-                            "name": str(file_entry.get("name") or ""),
-                        }
-                    ],
-                }
+                _open_external_success_event(
+                    torrent_hash=torrent_hash,
+                    torrent=torrent,
+                    file_entry=file_entry,
+                    file_index=payload.fileIndex,
+                    source_path=resolved.wsl_path,
+                )
             )
             return {"ok": True}
         except Exception as exc:
@@ -287,24 +356,14 @@ def create_app() -> FastAPI:
                 )
                 moved = [str(path) for path in result["moved"]]
                 _append_history_safely(
-                    {
-                        "action": "keep",
-                        "status": "success",
-                        "torrentHash": torrent_hash,
-                        "torrentName": _torrent_name(torrent),
-                        "summary": f"Kept {len(moved)} {'video' if len(moved) == 1 else 'videos'}",
-                        "files": [
-                            {
-                                "sourcePath": str(source),
-                                "destinationPath": destination,
-                                "fileIndex": file_index,
-                                "name": str(file_entry.get("name") or ""),
-                            }
-                            for source, destination, file_index, file_entry in zip(
-                                paths, moved, requested_indexes, marked, strict=False
-                            )
-                        ],
-                    }
+                    _keep_success_event(
+                        torrent_hash=torrent_hash,
+                        torrent=torrent,
+                        paths=paths,
+                        moved=moved,
+                        requested_indexes=requested_indexes,
+                        marked=marked,
+                    )
                 )
                 return result
         except ReviewWorkflowError as exc:
@@ -332,21 +391,14 @@ def create_app() -> FastAPI:
 
     @app.post("/api/torrents/{torrent_hash}/reject")
     def reject_torrent_file(torrent_hash: str, payload: RejectPayload) -> dict[str, bool]:
+        if not payload.confirmed:
+            raise HTTPException(status_code=409, detail="Delete requires confirmation")
         torrent: dict[str, Any] | None = None
         try:
             with _qbt() as client:
                 torrent = _find_torrent(client, torrent_hash)
                 reject_torrent(torrent_hash, client, confirmed=payload.confirmed)
-            _append_history_safely(
-                {
-                    "action": "delete",
-                    "status": "success",
-                    "torrentHash": torrent_hash,
-                    "torrentName": _torrent_name(torrent),
-                    "summary": "Deleted torrent",
-                    "detail": "qBittorrent deleteFiles=true",
-                }
-            )
+            _append_history_safely(_delete_success_event(torrent_hash, torrent))
             return {"ok": True}
         except ReviewWorkflowError as exc:
             if payload.confirmed and torrent is not None:

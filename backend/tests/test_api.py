@@ -156,6 +156,32 @@ def test_keep_logs_moved_files_after_confirmation(monkeypatch, tmp_path):
     ]
 
 
+def test_keep_succeeds_when_history_append_fails(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    source = show / "main.mkv"
+    source.write_text("video", encoding="utf-8")
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[{"index": 0, "name": "main.mkv", "size": 100, "progress": 1}])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+
+    def fail_append(*_args, **_kwargs):
+        raise OSError("history write failed")
+
+    monkeypatch.setattr("backend.app.main.append_history_event", fail_append)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": True})
+
+    assert response.status_code == 200
+    assert response.json()["folderCount"] == 1
+    assert not source.exists()
+    assert (session / "main.mkv").exists()
+
+
 def test_unconfirmed_keep_does_not_write_history(monkeypatch, tmp_path):
     clear_cleanup_failures()
     downloads = tmp_path / "downloads"
@@ -320,18 +346,18 @@ def test_keep_does_not_create_cleanup_attention_when_qbt_delete_would_fail(monke
 
 def test_unconfirmed_reject_does_not_delete_or_write_history(monkeypatch, tmp_path):
     clear_cleanup_failures()
-    downloads = tmp_path / "downloads"
-    session = tmp_path / "session"
-    session.mkdir()
-    fake_qbt = FakeQbt(files=[])
-    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    monkeypatch.setenv("CONFIG_LOCAL_PATH", str(tmp_path / "config.local.json"))
+
+    def fail_qbt():
+        raise AssertionError("qBittorrent should not be touched before delete confirmation")
+
+    monkeypatch.setattr("backend.app.main._qbt", fail_qbt)
     client = TestClient(create_app())
 
     response = client.post("/api/torrents/abc/reject", json={"confirmed": False})
 
     assert response.status_code == 409
     assert response.json()["detail"] == "Delete requires confirmation"
-    assert fake_qbt.deleted == []
     assert read_history_file(tmp_path) == []
 
 
