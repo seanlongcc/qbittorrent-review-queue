@@ -346,6 +346,63 @@ describe("App", () => {
     expect(screen.getByText("17 / 40")).toBeInTheDocument();
   });
 
+  it("keeps review actions busy when history refresh fails", async () => {
+    let kept = false;
+    let rejectHistory: (error: Error) => void = () => undefined;
+    let resolveKeep: (response: Response) => void = () => undefined;
+    const historyPromise = new Promise<Response>((_resolve, reject) => {
+      rejectHistory = reject;
+    });
+    const keepPromise = new Promise<Response>((resolve) => {
+      resolveKeep = resolve;
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/queue") {
+        return Response.json({
+          ...queueResponse("abc", "Alpha Torrent"),
+          settings: {
+            ...queueResponse("abc", "Alpha Torrent").settings,
+            folderCount: kept ? 17 : 16,
+          },
+        });
+      }
+      if (url === "/api/history") {
+        return historyPromise;
+      }
+      if (url === "/api/torrents/abc") {
+        return Response.json(torrentDetail("abc", "Alpha Torrent"));
+      }
+      if (url === "/api/torrents/abc/keep" && init?.method === "POST") {
+        kept = true;
+        return keepPromise;
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect((await screen.findAllByText("main.mp4")).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /E Keep/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /E Confirm/ })[0]);
+
+    const confirmButton = screen.getAllByRole("button", { name: /E Confirm/ })[0];
+    expect(confirmButton).toBeDisabled();
+
+    await act(async () => {
+      rejectHistory(new Error("history unavailable"));
+      await Promise.resolve();
+    });
+    expect(confirmButton).toBeDisabled();
+
+    resolveKeep(Response.json({ moved: ["/mnt/c/Review/main.mp4"], folderCount: 17 }));
+
+    expect(await screen.findByText("Kept 1 video")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("17 / 40")).toBeInTheDocument());
+  });
+
   it("deletes the active torrent, advances to the next sorted torrent, and shows a toast", async () => {
     let deleted = false;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

@@ -65,8 +65,8 @@ export function App() {
     try {
       const response = await getHistory();
       setHistoryItems(response.items);
-    } catch (error) {
-      dispatch({ type: "actionFailed", message: errorMessage(error) });
+    } catch {
+      // History is supporting context. Review actions keep their own busy/error state.
     }
   }, []);
 
