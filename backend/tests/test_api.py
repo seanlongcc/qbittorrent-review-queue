@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from fastapi.testclient import TestClient
 
@@ -138,7 +139,7 @@ def test_keep_logs_moved_files_after_confirmation(monkeypatch, tmp_path):
 
     assert response.status_code == 200
     item = read_history_file(tmp_path)[0]
-    assert item["id"]
+    assert_generated_history_id(item)
     assert item["timestamp"]
     assert item["action"] == "keep"
     assert item["status"] == "success"
@@ -190,7 +191,7 @@ def test_failed_confirmed_keep_logs_failure_without_success(monkeypatch, tmp_pat
     items = read_history_file(tmp_path)
     assert len(items) == 1
     item = items[0]
-    assert item["id"]
+    assert_generated_history_id(item)
     assert item["timestamp"]
     assert item["action"] == "keep"
     assert item["status"] == "failed"
@@ -317,6 +318,23 @@ def test_keep_does_not_create_cleanup_attention_when_qbt_delete_would_fail(monke
     assert queue_body["attentionTorrents"] == []
 
 
+def test_unconfirmed_reject_does_not_delete_or_write_history(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/reject", json={"confirmed": False})
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Delete requires confirmation"
+    assert fake_qbt.deleted == []
+    assert read_history_file(tmp_path) == []
+
+
 def test_reject_logs_confirmed_delete(monkeypatch, tmp_path):
     clear_cleanup_failures()
     downloads = tmp_path / "downloads"
@@ -331,7 +349,7 @@ def test_reject_logs_confirmed_delete(monkeypatch, tmp_path):
     assert response.status_code == 200
     assert fake_qbt.deleted == [("abc", True)]
     item = read_history_file(tmp_path)[0]
-    assert item["id"]
+    assert_generated_history_id(item)
     assert item["timestamp"]
     assert item["action"] == "delete"
     assert item["status"] == "success"
@@ -355,7 +373,7 @@ def test_failed_confirmed_reject_logs_failure(monkeypatch, tmp_path):
 
     assert response.status_code == 503
     item = read_history_file(tmp_path)[0]
-    assert item["id"]
+    assert_generated_history_id(item)
     assert item["timestamp"]
     assert item["action"] == "delete"
     assert item["status"] == "failed"
@@ -385,7 +403,7 @@ def test_open_external_logs_selected_file(monkeypatch, tmp_path):
     assert response.status_code == 200
     assert opened == ["C:\\Downloads\\Show\\main.mkv"]
     item = read_history_file(tmp_path)[0]
-    assert item["id"]
+    assert_generated_history_id(item)
     assert item["timestamp"]
     assert item["action"] == "open_external"
     assert item["status"] == "success"
@@ -393,6 +411,38 @@ def test_open_external_logs_selected_file(monkeypatch, tmp_path):
     assert item["torrentName"] == "Show"
     assert item["summary"] == "Opened main.mkv externally"
     assert item["files"][0]["sourcePath"] == str(source)
+
+
+def test_failed_open_external_logs_failure(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    (show / "main.mkv").write_text("video", encoding="utf-8")
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[{"index": 0, "name": "main.mkv", "size": 100, "progress": 1}])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+
+    def fail_open(windows_path):
+        raise RuntimeError(f"open failed: {windows_path}")
+
+    monkeypatch.setattr("backend.app.main.open_windows_default", fail_open)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/open", json={"fileIndex": 0})
+
+    assert response.status_code == 503
+    item = read_history_file(tmp_path)[0]
+    assert_generated_history_id(item)
+    assert item["timestamp"]
+    assert item["action"] == "open_external"
+    assert item["status"] == "failed"
+    assert item["torrentHash"] == "abc"
+    assert item["torrentName"] == "Show"
+    assert item["summary"] == "Open external failed"
+    assert "open failed" in item["detail"]
+    assert "C:\\Downloads\\Show\\main.mkv" in item["detail"]
 
 
 class FakeQbt:
@@ -443,3 +493,7 @@ def read_history_file(tmp_path):
     if not path.exists():
         return []
     return json.loads(path.read_text(encoding="utf-8"))["items"]
+
+
+def assert_generated_history_id(item):
+    assert re.fullmatch(r"[0-9a-f]{32}", item["id"])
