@@ -1,0 +1,73 @@
+.api-pill.connecting .api-dot {
+  background: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--blue) 16%, transparent);
+}
+
+.review-panel-tabs {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border-top: 1px solid var(--line);
+  background: oklch(16.8% 0.011 248);
+}
+
+.review-tab-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  padding: 7px 8px;
+  background: var(--head);
+}
+
+.review-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  padding: 0 10px;
+  color: var(--muted-text);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.review-tab:hover {
+  border-color: var(--line);
+  background: oklch(22.5% 0.014 248);
+}
+
+.review-tab[aria-selected="true"] {
+  border-color: oklch(45% 0.08 68);
+  color: var(--ink);
+  background: oklch(25% 0.04 68);
+}
+
+.review-tab-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  min-height: 18px;
+  border: 1px solid color-mix(in oklab, var(--key) 55%, transparent);
+  border-radius: var(--radius);
+  padding: 0 5px;
+  color: var(--key);
+  background: oklch(15% 0.01 248);
+  font: 650 0.68rem "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.review-tab-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.review-tab-panel > .candidate-section,
+.review-tab-panel > .history-section {
+  height: 100%;
+  border-top: 0;
+}

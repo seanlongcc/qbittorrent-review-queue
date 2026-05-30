@@ -5,13 +5,7 @@ from typing import Any
 
 from backend.app.config import AppSettings
 from backend.app.paths import resolve_file_path
-
-
-VIDEO_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".webm", ".m4v", ".wmv", ".ts", ".m2ts"}
-
-
-def is_video_name(name: str) -> bool:
-    return Path(name).suffix.lower() in VIDEO_EXTENSIONS
+from backend.app.video_files import is_video_name
 
 
 def _file_index(file_entry: dict[str, Any], fallback: int = 0) -> int:

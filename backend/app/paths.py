@@ -67,3 +67,20 @@ def resolve_file_path(torrent: dict[str, Any], file_entry: dict[str, Any], setti
     relative_name = str(file_entry.get("name") or "")
     windows_path = str(PureWindowsPath(save_path, *PureWindowsPath(relative_name).parts))
     return ResolvedPath(windows_path=windows_path, wsl_path=map_windows_to_wsl(windows_path, settings))
+
+
+def resolve_torrent_folder_path(torrent: dict[str, Any], settings: AppSettings) -> ResolvedPath:
+    windows_path = str(
+        torrent.get("content_path")
+        or torrent.get("contentPath")
+        or torrent.get("save_path")
+        or torrent.get("savePath")
+        or ""
+    )
+    if not windows_path:
+        raise ValueError("Torrent folder path is unavailable")
+
+    wsl_path = map_windows_to_wsl(windows_path, settings)
+    if wsl_path.is_file():
+        return ResolvedPath(windows_path=str(PureWindowsPath(windows_path).parent), wsl_path=wsl_path.parent)
+    return ResolvedPath(windows_path=str(PureWindowsPath(windows_path)), wsl_path=wsl_path)

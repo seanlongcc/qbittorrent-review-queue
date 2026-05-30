@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanupRetryTorrent, getQueue, getTorrentDetail, keepTorrent, pickFolder, rejectTorrent } from "./client";
+import { cleanupRetryTorrent, getHistory, getQueue, getTorrentDetail, keepTorrent, pickFolder, rejectTorrent } from "./client";
 
 describe("api client", () => {
   afterEach(() => {
@@ -73,5 +73,30 @@ describe("api client", () => {
         body: JSON.stringify({ title: "Choose output", initialPath: "C:\\Users\\seanl\\Desktop" }),
       }),
     );
+  });
+
+  it("fetches execution history from FastAPI", async () => {
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        items: [
+          {
+            id: "event-1",
+            timestamp: "2026-05-26T20:00:00Z",
+            action: "keep",
+            status: "success",
+            torrentHash: "abc",
+            torrentName: "Done Torrent",
+            summary: "Kept 1 video",
+            files: [{ destinationPath: "/mnt/c/Review/main.mp4", name: "main.mp4" }],
+          },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const history = await getHistory();
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/history");
+    expect(history.items[0].summary).toBe("Kept 1 video");
   });
 });

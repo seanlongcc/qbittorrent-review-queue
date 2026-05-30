@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -12,15 +13,17 @@ from backend.app.cleanup import (
     cleanup_failure_hashes,
     cleanup_failure_items,
     forget_cleanup_failure,
-    remember_cleanup_failure,
 )
-from backend.app.config import SettingsUpdate, load_settings, public_settings, save_settings
+from backend.app.config import AppSettings, SettingsUpdate, load_settings, public_settings, save_settings
+from backend.app.history import append_history_event, history_file_path, load_history
 from backend.app.media import file_response_for, open_windows_default
-from backend.app.paths import local_filesystem_path, resolve_file_path
+from backend.app.paths import local_filesystem_path, resolve_file_path, resolve_torrent_folder_path
 from backend.app.qbt.client import QbtClient, QbtError
-from backend.app.review import CleanupFailedError, KeepRequest, ReviewWorkflowError, keep_torrent, reject_torrent
+from backend.app.review import KeepRequest, ReviewWorkflowError, keep_torrent, reject_torrent
+from backend.app.session_count import remember_session_folder_count, session_folder_count
 from backend.app.system_dialog import FolderPickerUnavailable, FolderSelectionCancelled, pick_windows_folder
-from backend.app.torrents import build_torrent_detail, is_video_name, queue_item
+from backend.app.torrents import build_torrent_detail, queue_item
+from backend.app.video_files import is_video_name
 
 
 class KeepPayload(BaseModel):
@@ -86,6 +89,173 @@ def _qbt_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=503, detail=f"qBittorrent API unavailable: {exc}")
 
 
+def _history_path() -> Path:
+    return history_file_path(load_settings().config_local_path)
+
+
+def _append_history_safely(event: dict[str, Any]) -> None:
+    try:
+        append_history_event(_history_path(), event)
+    except Exception:
+        return
+
+
+def _append_history_factory_safely(build_event: Callable[[], dict[str, Any]]) -> None:
+    try:
+        event = build_event()
+    except Exception:
+        return
+    _append_history_safely(event)
+
+
+def _torrent_name(torrent: dict[str, Any] | None) -> str | None:
+    if not torrent:
+        return None
+    name = torrent.get("name")
+    return str(name) if name else None
+
+
+def _workflow_failure_event(
+    action: str,
+    torrent_hash: str,
+    torrent: dict[str, Any] | None,
+    detail: str,
+) -> dict[str, Any]:
+    label = "Delete" if action == "delete" else "Keep" if action == "keep" else "Open external"
+    return {
+        "action": action,
+        "status": "failed",
+        "torrentHash": torrent_hash,
+        "torrentName": _torrent_name(torrent),
+        "summary": f"{label} failed",
+        "detail": detail,
+    }
+
+
+def _open_external_success_event(
+    torrent_hash: str,
+    torrent: dict[str, Any],
+    file_entry: dict[str, Any],
+    file_index: int,
+    source_path: Path,
+) -> dict[str, Any]:
+    return {
+        "action": "open_external",
+        "status": "success",
+        "torrentHash": torrent_hash,
+        "torrentName": _torrent_name(torrent),
+        "summary": f"Opened {file_entry.get('name') or 'file'} externally",
+        "files": [
+            {
+                "sourcePath": str(source_path),
+                "fileIndex": file_index,
+                "name": str(file_entry.get("name") or ""),
+            }
+        ],
+    }
+
+
+def _keep_success_event(
+    torrent_hash: str,
+    torrent: dict[str, Any],
+    paths: list[Path],
+    moved: list[str],
+    requested_indexes: list[int],
+    marked: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "action": "keep",
+        "status": "success",
+        "torrentHash": torrent_hash,
+        "torrentName": _torrent_name(torrent),
+        "summary": f"Kept {len(moved)} {'video' if len(moved) == 1 else 'videos'}",
+        "files": [
+            {
+                "sourcePath": str(source),
+                "destinationPath": destination,
+                "fileIndex": file_index,
+                "name": str(file_entry.get("name") or ""),
+            }
+            for source, destination, file_index, file_entry in zip(
+                paths, moved, requested_indexes, marked, strict=False
+            )
+        ],
+    }
+
+
+def _history_file_entries(
+    torrent: dict[str, Any],
+    files: list[Any],
+    settings: AppSettings,
+) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for fallback, file_entry in enumerate(files):
+        if not isinstance(file_entry, dict):
+            continue
+        try:
+            file_index = int(file_entry.get("index", fallback))
+        except (TypeError, ValueError):
+            file_index = fallback
+        entry: dict[str, Any] = {
+            "fileIndex": file_index,
+            "name": str(file_entry.get("name") or ""),
+        }
+        try:
+            entry["sourcePath"] = str(resolve_file_path(torrent, file_entry, settings).wsl_path)
+        except Exception:
+            pass
+        entries.append(entry)
+    return entries
+
+
+def _delete_success_event(
+    torrent_hash: str,
+    torrent: dict[str, Any],
+    files: list[Any],
+    settings: AppSettings,
+) -> dict[str, Any]:
+    deleted_files = _history_file_entries(torrent, files, settings)
+    event: dict[str, Any] = {
+        "action": "delete",
+        "status": "success",
+        "torrentHash": torrent_hash,
+        "torrentName": _torrent_name(torrent),
+        "summary": (
+            f"Deleted torrent and {len(deleted_files)} {'file' if len(deleted_files) == 1 else 'files'}"
+            if deleted_files
+            else "Deleted torrent"
+        ),
+        "detail": "qBittorrent deleteFiles=true",
+    }
+    if deleted_files:
+        event["files"] = deleted_files
+    return event
+
+
+def _files_for_delete_history(client: QbtClient, torrent_hash: str) -> list[Any]:
+    try:
+        return client.torrent_files(torrent_hash)
+    except Exception:
+        # History enrichment must not block a confirmed delete.
+        return []
+
+
+def _append_workflow_failure(
+    action: str,
+    torrent_hash: str,
+    torrent: dict[str, Any] | None,
+    detail: str,
+) -> None:
+    _append_history_safely(
+        _workflow_failure_event(
+            action=action,
+            torrent_hash=torrent_hash,
+            torrent=torrent,
+            detail=detail,
+        )
+    )
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Local qBittorrent Review Queue")
 
@@ -100,6 +270,10 @@ def create_app() -> FastAPI:
     @app.post("/api/settings")
     def post_settings(update: SettingsUpdate) -> dict[str, Any]:
         return public_settings(save_settings(update))
+
+    @app.get("/api/history")
+    def get_history() -> dict[str, Any]:
+        return {"items": load_history(_history_path())}
 
     @app.post("/api/system/pick-folder")
     def pick_folder(payload: FolderPickPayload) -> dict[str, Any]:
@@ -178,13 +352,41 @@ def create_app() -> FastAPI:
     @app.post("/api/torrents/{torrent_hash}/open")
     def open_torrent_file(torrent_hash: str, payload: OpenPayload) -> dict[str, bool]:
         settings = load_settings()
+        torrent: dict[str, Any] | None = None
         try:
             with _qbt() as client:
                 torrent = _find_torrent(client, torrent_hash)
                 file_entry = _find_file(client.torrent_files(torrent_hash), payload.fileIndex)
             resolved = resolve_file_path(torrent, file_entry, settings)
             open_windows_default(resolved.windows_path)
+            _append_history_safely(
+                _open_external_success_event(
+                    torrent_hash=torrent_hash,
+                    torrent=torrent,
+                    file_entry=file_entry,
+                    file_index=payload.fileIndex,
+                    source_path=resolved.wsl_path,
+                )
+            )
             return {"ok": True}
+        except Exception as exc:
+            if torrent is not None:
+                _append_workflow_failure("open_external", torrent_hash, torrent, str(exc))
+            raise _qbt_error(exc) from exc
+
+    @app.post("/api/torrents/{torrent_hash}/open-folder")
+    def open_torrent_folder(torrent_hash: str) -> dict[str, bool]:
+        settings = load_settings()
+        try:
+            with _qbt() as client:
+                torrent = _find_torrent(client, torrent_hash)
+            resolved = resolve_torrent_folder_path(torrent, settings)
+            if not resolved.wsl_path.exists() or not resolved.wsl_path.is_dir():
+                raise FileNotFoundError(f"Torrent folder not found: {resolved.wsl_path}")
+            open_windows_default(resolved.windows_path)
+            return {"ok": True}
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         except Exception as exc:
             raise _qbt_error(exc) from exc
 
@@ -213,35 +415,38 @@ def create_app() -> FastAPI:
                         detail=f"File index {invalid_indexes[0]} is not a video candidate",
                     )
                 marked = [files_by_index[index] for index in requested_indexes]
-                if video_indexes.difference(requested_indexes) and not payload.confirmed:
-                    raise HTTPException(status_code=409, detail="Keep requires confirmation")
                 paths = [resolve_file_path(torrent, file_entry, settings).wsl_path for file_entry in marked]
                 session_folder = local_filesystem_path(settings.session_folder)
-                existing_count = _count_existing_videos(session_folder)
-                return keep_torrent(
+                existing_count = session_folder_count(session_folder)
+                result = keep_torrent(
                     KeepRequest(
-                        torrent_hash=torrent_hash,
+                        confirmed=payload.confirmed,
                         marked_files=paths,
                         session_folder=session_folder,
                         existing_count=existing_count,
                         session_limit=settings.session_folder_limit,
                     ),
-                    client,
                 )
-        except CleanupFailedError as exc:
-            failure = remember_cleanup_failure(
-                torrent_hash,
-                torrent or {"name": torrent_hash},
-                detail=str(exc),
-                moved=[str(path) for path in exc.moved],
-            )
-            return JSONResponse(
-                status_code=202,
-                content={"moved": failure.moved, "cleanupFailed": True},
-            )
+                moved = [str(path) for path in result["moved"]]
+                remember_session_folder_count(session_folder, int(result["folderCount"]))
+                _append_history_safely(
+                    _keep_success_event(
+                        torrent_hash=torrent_hash,
+                        torrent=torrent,
+                        paths=paths,
+                        moved=moved,
+                        requested_indexes=requested_indexes,
+                        marked=marked,
+                    )
+                )
+                return result
         except ReviewWorkflowError as exc:
+            if payload.confirmed and torrent is not None:
+                _append_workflow_failure("keep", torrent_hash, torrent, str(exc))
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except Exception as exc:
+            if payload.confirmed and torrent is not None:
+                _append_workflow_failure("keep", torrent_hash, torrent, str(exc))
             raise _qbt_error(exc) from exc
 
     @app.post("/api/torrents/{torrent_hash}/cleanup-retry")
@@ -260,13 +465,27 @@ def create_app() -> FastAPI:
 
     @app.post("/api/torrents/{torrent_hash}/reject")
     def reject_torrent_file(torrent_hash: str, payload: RejectPayload) -> dict[str, bool]:
+        if not payload.confirmed:
+            raise HTTPException(status_code=409, detail="Delete requires confirmation")
+        torrent: dict[str, Any] | None = None
+        files: list[Any] = []
         try:
+            settings = load_settings()
             with _qbt() as client:
+                torrent = _find_torrent(client, torrent_hash)
+                files = _files_for_delete_history(client, torrent_hash)
                 reject_torrent(torrent_hash, client, confirmed=payload.confirmed)
+            _append_history_factory_safely(
+                lambda: _delete_success_event(torrent_hash, torrent, files, settings)
+            )
             return {"ok": True}
         except ReviewWorkflowError as exc:
+            if payload.confirmed and torrent is not None:
+                _append_workflow_failure("delete", torrent_hash, torrent, str(exc))
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except Exception as exc:
+            if payload.confirmed and torrent is not None:
+                _append_workflow_failure("delete", torrent_hash, torrent, str(exc))
             raise _qbt_error(exc) from exc
 
     dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -282,14 +501,5 @@ def create_app() -> FastAPI:
         return {"message": "Frontend build not found. Run npm run build."}
 
     return app
-
-
-def _count_existing_videos(path: Path) -> int:
-    from backend.app.torrents import is_video_name
-
-    if not path.exists():
-        return 0
-    return sum(1 for item in path.iterdir() if item.is_file() and is_video_name(item.name))
-
 
 app = create_app()

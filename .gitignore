@@ -151,6 +151,7 @@ activemq-data/
 .env
 .envrc
 config.local.json
+execution-log.json
 .venv
 env/
 venv/

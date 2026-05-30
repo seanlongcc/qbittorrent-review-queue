@@ -3,1170 +3,944 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Queue control redesign mockups</title>
+    <link rel="icon" href="data:," />
+    <title>Queue and review controls, no right panel</title>
     <style>
       :root {
         color-scheme: dark;
         --bg: oklch(15.8% 0.01 248);
-        --surface: oklch(21.2% 0.013 246);
-        --surface-2: oklch(26.5% 0.016 246);
-        --surface-3: oklch(30% 0.017 246);
-        --text: oklch(94% 0.011 86);
+        --rail: oklch(17.5% 0.011 248);
+        --panel: oklch(21.2% 0.013 246);
+        --panel-2: oklch(26.5% 0.016 246);
+        --panel-3: oklch(30% 0.017 246);
+        --ink: oklch(94% 0.011 86);
         --muted: oklch(72% 0.026 82);
-        --faint: oklch(57% 0.02 82);
-        --border: oklch(35% 0.019 246);
-        --border-strong: oklch(45% 0.023 246);
+        --faint: oklch(56% 0.022 82);
+        --line: oklch(35% 0.019 246);
+        --line-strong: oklch(45% 0.023 246);
         --keep: oklch(69% 0.13 154);
         --keep-soft: oklch(25% 0.05 154);
         --danger: oklch(62% 0.18 31);
         --danger-soft: oklch(26% 0.06 31);
-        --api-off: oklch(62% 0.18 31);
         --focus: oklch(75% 0.12 68);
-        --info: oklch(72% 0.09 218);
-        --shadow: 0 18px 54px oklch(8% 0.01 248 / 0.42);
-        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --radius: 6px;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html,
       body {
-        background:
-          radial-gradient(circle at top left, oklch(22% 0.018 246), transparent 34rem),
-          var(--bg);
-        color: var(--text);
-        margin: 0;
-        min-height: 100vh;
+        max-width: 100%;
         overflow-x: hidden;
       }
 
-      button,
-      select {
-        font: inherit;
+      body {
+        margin: 0;
+        min-width: 320px;
+        color: var(--ink);
+        background: var(--bg);
       }
 
       button {
         cursor: pointer;
+        font: inherit;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
       }
 
       .page {
         display: grid;
-        gap: 26px;
+        gap: 22px;
+        width: min(100%, 1540px);
         margin: 0 auto;
-        max-width: 1540px;
-        min-width: 0;
-        overflow: hidden;
-        padding: 26px;
-        width: 100%;
-      }
-
-      .page > * {
-        min-width: 0;
+        padding: 24px;
       }
 
       .brief {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: end;
-        display: flex;
         gap: 18px;
-        justify-content: space-between;
+      }
+
+      .brief > *,
+      .mockup-label > *,
+      .topbar > *,
+      .workbench > *,
+      .main-area > *,
+      .queue-rail > *,
+      .action-row > *,
+      .action-left,
+      .action-right {
+        min-width: 0;
       }
 
       .brief h1 {
-        font-size: 1.25rem;
-        letter-spacing: 0;
-        line-height: 1.15;
-        margin: 0 0 8px;
+        font-size: 1.18rem;
+        font-weight: 670;
+        line-height: 1.2;
+      }
+
+      .brief p,
+      .mockup-label p {
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
       }
 
       .brief p {
-        color: var(--muted);
-        line-height: 1.45;
-        margin: 0;
-        max-width: 72ch;
-        overflow-wrap: break-word;
+        max-width: 74ch;
+        margin-top: 6px;
       }
 
-      .brief .rule {
+      .scene {
         color: var(--faint);
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         white-space: nowrap;
       }
 
       .mockup-set {
         display: grid;
-        gap: 18px;
+        gap: 10px;
       }
 
       .mockup-label {
-        align-items: center;
         display: flex;
-        gap: 12px;
+        align-items: end;
         justify-content: space-between;
+        gap: 16px;
       }
 
       .mockup-label h2 {
         font-size: 0.95rem;
-        letter-spacing: 0;
-        margin: 0;
-      }
-
-      .mockup-label p {
-        color: var(--muted);
-        font-size: 0.82rem;
-        margin: 0;
-        overflow-wrap: break-word;
+        font-weight: 670;
+        line-height: 1.2;
       }
 
       .frame {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        box-shadow: var(--shadow);
-        max-width: 100%;
-        min-width: 0;
         overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+        box-shadow: 0 18px 50px oklch(7% 0.01 248 / 0.42);
       }
 
-      .titlebar {
-        align-items: center;
-        background: oklch(18.8% 0.012 246);
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        gap: 14px;
-        justify-content: space-between;
-        min-height: 48px;
-        padding: 9px 12px 9px 16px;
+      .icon {
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        fill: none;
       }
 
-      .brand {
-        align-items: center;
-        display: flex;
-        gap: 10px;
-        min-width: 0;
-      }
-
-      .brand-mark {
-        background:
-          linear-gradient(145deg, transparent 0 44%, oklch(18% 0.02 154) 45% 100%),
-          var(--keep);
-        border-radius: 50%;
-        box-shadow: inset 0 -2px 8px oklch(16% 0.04 154 / 0.55);
-        height: 18px;
-        width: 18px;
-      }
-
-      .brand strong,
-      .file-title,
-      .torrent-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .title-meta {
-        color: var(--muted);
-        font-size: 0.78rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .title-actions {
-        align-items: center;
-        display: flex;
-        gap: 8px;
-      }
-
-      .status-pill {
-        align-items: center;
-        border: 1px solid var(--border);
-        border-radius: 999px;
-        color: var(--muted);
-        display: inline-flex;
-        font-size: 0.75rem;
-        gap: 7px;
-        height: 30px;
-        padding: 0 10px;
-        white-space: nowrap;
-      }
-
-      .status-dot {
-        background: var(--keep);
-        border-radius: 50%;
-        box-shadow: 0 0 0 3px oklch(69% 0.13 154 / 0.12);
-        height: 7px;
-        width: 7px;
-      }
-
-      .status-dot.off {
-        background: var(--api-off);
-        box-shadow: 0 0 0 3px oklch(62% 0.18 31 / 0.12);
-      }
-
-      .workspace {
-        display: grid;
-        grid-template-columns: 292px minmax(420px, 1fr);
-        min-height: 860px;
-        min-width: 0;
-      }
-
-      .queue-rail,
-      .decision-rail {
-        background: var(--surface);
-        display: grid;
-        min-width: 0;
-      }
-
-      .queue-rail {
-        border-right: 1px solid var(--border);
-        grid-template-rows: auto auto auto 1fr;
-      }
-
-      .decision-rail {
-        border-left: 1px solid var(--border);
-        grid-template-rows: auto auto 1fr auto;
-      }
-
-      .rail-top,
-      .decision-top {
-        border-bottom: 1px solid var(--border);
-        display: grid;
-        gap: 10px;
-        padding: 13px 12px;
-      }
-
-      .queue-head,
-      .decision-head,
-      .stage-head {
-        align-items: start;
-        display: flex;
-        gap: 12px;
-        justify-content: space-between;
-        min-width: 0;
-      }
-
-      .queue-title,
-      .decision-title,
-      .stage-title {
-        min-width: 0;
-      }
-
-      h3 {
-        font-size: 0.92rem;
-        letter-spacing: 0;
-        line-height: 1.2;
-        margin: 0;
-      }
-
-      .subtle,
-      .path,
-      .row-meta,
-      .small {
-        color: var(--muted);
-      }
-
-      .subtle,
-      .small {
-        font-size: 0.76rem;
-      }
-
-      .sync-line {
-        align-items: center;
-        color: var(--muted);
-        display: flex;
-        font-size: 0.76rem;
-        gap: 7px;
-        min-height: 20px;
-      }
-
-      .sync-line.warning {
-        color: var(--focus);
+      .icon.sm {
+        width: 14px;
+        height: 14px;
       }
 
       .btn,
       .icon-btn,
-      .seg button,
-      .filter-chip,
-      .sort-menu button {
-        align-items: center;
-        background: var(--surface-2);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        color: var(--text);
+      .cmd-btn,
+      .select-btn,
+      .sort-direction {
         display: inline-flex;
-        gap: 7px;
-        height: 32px;
+        align-items: center;
         justify-content: center;
+        height: 32px;
         min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        color: var(--ink);
+        background: var(--panel-2);
+        line-height: 1;
+      }
+
+      .btn,
+      .select-btn {
+        gap: 7px;
         padding: 0 10px;
+      }
+
+      .btn > span,
+      .select-btn > span {
+        line-height: 1;
         white-space: nowrap;
+      }
+
+      .icon-btn,
+      .sort-direction {
+        width: 34px;
+        padding: 0;
+      }
+
+      .cmd-btn {
+        gap: 5px;
+        width: 50px;
+        padding: 0 6px;
+      }
+
+      .cmd-btn.split-key {
+        width: 58px;
+        justify-content: stretch;
+        gap: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .cmd-btn.split-key .icon {
+        margin-inline: auto;
+      }
+
+      .key-cell {
+        display: grid;
+        width: 22px;
+        height: 100%;
+        place-items: center;
+        border-right: 1px solid var(--line);
+        background: oklch(18% 0.012 248);
+      }
+
+      .btn.split-action {
+        padding-left: 0;
+        overflow: hidden;
+      }
+
+      .btn.split-action .key-cell {
+        margin-right: 2px;
+      }
+
+      .cmd-btn.icon-only {
+        width: 34px;
+        padding: 0;
+      }
+
+      .shortcut {
+        color: var(--focus);
+        font: 760 0.68rem "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        line-height: 1;
+      }
+
+      .btn .shortcut {
+        color: currentColor;
+        opacity: 0.72;
       }
 
       .btn:hover,
       .icon-btn:hover,
-      .seg button:hover,
-      .filter-chip:hover,
-      .sort-menu button:hover {
-        background: var(--surface-3);
-        border-color: var(--border-strong);
+      .cmd-btn:hover,
+      .select-btn:hover,
+      .sort-direction:hover,
+      .torrent:hover,
+      .candidate:hover {
+        border-color: var(--line-strong);
+        background: var(--panel-3);
       }
 
       .btn:focus-visible,
       .icon-btn:focus-visible,
-      .seg button:focus-visible,
-      .filter-chip:focus-visible,
-      .sort-menu button:focus-visible,
-      select:focus-visible,
+      .cmd-btn:focus-visible,
+      .select-btn:focus-visible,
+      .sort-direction:focus-visible,
       .torrent:focus-visible,
-      .candidate-row:focus-visible {
+      .candidate:focus-visible,
+      summary:focus-visible {
         outline: 2px solid var(--focus);
         outline-offset: 2px;
       }
 
-      .icon-btn {
-        width: 34px;
-      }
-
-      .primary {
-        background: var(--surface-3);
-      }
-
-      .keep {
-        background: var(--keep);
+      .btn.keep {
         border-color: oklch(76% 0.11 154);
         color: oklch(14% 0.011 154);
-        font-weight: 700;
+        background: var(--keep);
+        font-weight: 760;
       }
 
-      .keep:hover {
-        background: oklch(75% 0.135 154);
-      }
-
-      .reject {
-        background: var(--danger);
+      .btn.reject {
         border-color: oklch(70% 0.16 31);
-        color: var(--text);
-        font-weight: 700;
+        color: var(--ink);
+        background: var(--danger);
+        font-weight: 760;
       }
 
-      .reject:hover {
-        background: oklch(68% 0.185 31);
-      }
-
-      .filter-row {
-        display: grid;
-        gap: 7px;
-        grid-template-columns: 1fr 1fr 1fr;
-      }
-
-      .filter-chip {
-        align-items: start;
-        display: grid;
-        gap: 2px;
-        height: auto;
-        justify-items: start;
-        padding: 8px 9px;
-        text-align: left;
-      }
-
-      .filter-chip span:first-child {
-        color: var(--muted);
-        font-size: 0.72rem;
-      }
-
-      .filter-chip strong {
-        font-size: 0.95rem;
-        line-height: 1;
-      }
-
-      .filter-chip.active {
-        background: oklch(27% 0.035 68);
+      .icon-btn.primary,
+      .cmd-btn.primary,
+      .sort-direction.active {
         border-color: oklch(53% 0.08 68);
+        color: var(--focus);
+        background: oklch(27% 0.035 68);
       }
 
-      .sort-box {
-        background: oklch(18.8% 0.012 246);
-        border-bottom: 1px solid var(--border);
+      .topbar {
         display: grid;
-        gap: 8px;
-        padding: 11px 12px;
-      }
-
-      .sort-row {
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        display: grid;
-        gap: 8px;
-        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        min-height: 46px;
+        border-bottom: 1px solid var(--line-strong);
+        padding: 0 12px 0 14px;
+        background: oklch(17.8% 0.011 248);
       }
 
-      label {
-        color: var(--muted);
-        font-size: 0.75rem;
+      .brand,
+      .qbt-cluster,
+      .url-pill,
+      .api-pill,
+      .queue-title,
+      .sort-row,
+      .torrent-main,
+      .torrent-meta,
+      .candidate-meta,
+      .action-row,
+      .action-left,
+      .action-right,
+      .slot-pill {
+        display: flex;
+        align-items: center;
+      }
+
+      .brand {
+        gap: 9px;
+        font-size: 0.9rem;
         font-weight: 650;
       }
 
-      select {
-        appearance: none;
-        background:
-          linear-gradient(45deg, transparent 50%, var(--muted) 50%) calc(100% - 13px) 50% / 6px 6px no-repeat,
-          linear-gradient(135deg, var(--muted) 50%, transparent 50%) calc(100% - 9px) 50% / 6px 6px no-repeat,
-          var(--surface-2);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        color: var(--text);
-        height: 32px;
+      .brand-mark {
+        display: inline-grid;
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 50%;
+        color: oklch(14% 0.011 154);
+        background: var(--keep);
+      }
+
+      .qbt-cluster {
+        gap: 8px;
+      }
+
+      .url-pill,
+      .api-pill {
+        gap: 7px;
+        height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0 10px;
+        color: var(--muted);
+        background: oklch(19% 0.012 248);
+        font-size: 0.76rem;
+        white-space: nowrap;
+      }
+
+      .url-pill {
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .api-dot {
+        width: 7px;
+        height: 7px;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: var(--keep);
+        box-shadow: 0 0 0 3px oklch(69% 0.13 154 / 0.12);
+      }
+
+      .api-dot.warn {
+        background: var(--focus);
+        box-shadow: 0 0 0 3px oklch(75% 0.12 68 / 0.13);
+      }
+
+      .workbench {
+        display: grid;
+        grid-template-columns: 292px minmax(0, 1fr);
+        min-height: 740px;
+      }
+
+      .queue-rail {
+        display: grid;
+        grid-template-rows: auto auto auto minmax(0, 1fr);
         min-width: 0;
-        padding: 0 28px 0 10px;
+        border-right: 1px solid var(--line);
+        background: var(--rail);
       }
 
-      .seg {
+      .queue-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        padding: 12px 10px;
+        background: oklch(16.5% 0.011 248);
+      }
+
+      .queue-title {
+        gap: 8px;
+      }
+
+      .queue-title h3,
+      .panel-head h3 {
+        font-size: 0.92rem;
+        font-weight: 670;
+        line-height: 1.2;
+      }
+
+      .sort-box {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        border-bottom: 1px solid var(--line);
+        padding: 10px;
+        background: oklch(18.2% 0.012 248);
       }
 
-      .seg button {
-        border-radius: 0;
-        font-size: 0.75rem;
-        padding: 0 8px;
-      }
-
-      .seg button:first-child {
-        border-radius: 7px 0 0 7px;
-      }
-
-      .seg button:last-child {
-        border-left: 0;
-        border-radius: 0 7px 7px 0;
-      }
-
-      .seg .active {
-        background: oklch(28% 0.045 68);
-        border-color: oklch(54% 0.09 68);
-        color: var(--focus);
-      }
-
-      .torrent-list {
+      .sort-row {
         display: grid;
-        gap: 2px;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 8px;
+      }
+
+      .sort-row label,
+      .muted,
+      .torrent-meta,
+      .candidate-meta,
+      .path,
+      .slot-pill {
+        color: var(--muted);
+      }
+
+      .sort-row label {
+        font-size: 0.74rem;
+        font-weight: 650;
+      }
+
+      .select-btn {
+        justify-content: space-between;
+      }
+
+      .torrent-head,
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-bottom: 1px solid var(--line);
+        padding: 9px 10px;
+        background: oklch(23.8% 0.013 248);
+        font-size: 0.8rem;
+        font-weight: 650;
+      }
+
+      .count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
+        height: 20px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--ink);
+        background: oklch(18% 0.012 248);
+        font: 650 0.72rem "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+
+      .torrent-list,
+      .candidate-list {
+        display: grid;
+        align-content: start;
+        gap: 3px;
+        min-height: 0;
         overflow: auto;
         padding: 8px;
       }
 
-      .torrent {
-        background: transparent;
+      .torrent,
+      .candidate {
+        min-width: 0;
         border: 1px solid transparent;
-        border-radius: 7px;
-        color: var(--text);
-        display: grid;
-        gap: 5px;
-        padding: 9px 10px;
+        border-radius: var(--radius);
+        color: var(--ink);
+        background: transparent;
         text-align: left;
       }
 
-      .torrent:hover {
-        background: oklch(24% 0.015 246);
+      .torrent {
+        display: grid;
+        gap: 5px;
+        padding: 9px 10px;
       }
 
-      .torrent.active {
-        background: var(--surface-2);
+      .torrent.active,
+      .candidate.selected {
         border-color: var(--focus);
+        background: var(--panel-2);
       }
 
-      .torrent-line,
-      .meta-line {
-        align-items: center;
-        display: flex;
-        gap: 8px;
+      .torrent-main,
+      .torrent-meta {
         justify-content: space-between;
-        min-width: 0;
+        gap: 10px;
       }
 
-      .torrent-name {
-        font-size: 0.84rem;
+      .torrent-name,
+      .file-title,
+      .path,
+      .candidate-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .torrent-name,
+      .candidate-name,
+      .file-title {
         font-weight: 650;
       }
 
-      .row-meta {
+      .torrent-size {
         flex: 0 0 auto;
-        font-size: 0.74rem;
+        color: var(--muted);
+        font-size: 0.75rem;
       }
 
-      .stage-area {
-        background: oklch(14.8% 0.01 248);
+      .torrent-meta,
+      .candidate-meta {
+        font-size: 0.72rem;
+      }
+
+      .main-area {
         display: grid;
         grid-template-rows: auto minmax(330px, 1fr) auto auto;
-        max-width: 100%;
         min-width: 0;
+        min-height: 0;
+        background: oklch(14.8% 0.01 248);
       }
 
       .stage-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        padding: 12px;
         background: oklch(17.5% 0.011 248);
-        border-bottom: 1px solid var(--border);
-        padding: 12px 14px;
       }
 
       .file-title {
         display: block;
-        font-size: 0.95rem;
-        margin-bottom: 3px;
+        font-size: 0.96rem;
+        line-height: 1.2;
       }
 
       .path {
+        margin-top: 4px;
         font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 0.72rem;
-        margin: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
       }
 
       .preview {
         display: grid;
         min-height: 0;
-        padding: 16px;
+        padding: 14px;
         place-items: center;
+        background: oklch(13.7% 0.009 248);
       }
 
-      .video-box {
-        aspect-ratio: 16 / 9;
-        background:
-          linear-gradient(155deg, oklch(22% 0.01 248), oklch(12% 0.008 248)),
-          oklch(16% 0.01 248);
-        border: 1px solid var(--border);
-        border-radius: 8px;
+      .video {
         display: grid;
-        max-height: 100%;
-        overflow: hidden;
+        width: min(100%, 980px);
+        aspect-ratio: 16 / 9;
         place-items: center;
-        width: min(100%, 900px);
+        overflow: hidden;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background:
+          linear-gradient(155deg, oklch(22% 0.01 248), oklch(10% 0.008 248)),
+          oklch(12% 0.008 248);
       }
 
       .video-plate {
-        align-items: center;
-        color: var(--muted);
         display: grid;
-        gap: 10px;
         justify-items: center;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 0.82rem;
       }
 
-      .play-mark {
-        align-items: center;
-        border: 1px solid var(--border-strong);
-        border-radius: 50%;
-        color: var(--text);
-        display: grid;
-        font-size: 1rem;
+      .play {
+        display: inline-grid;
+        width: 54px;
         height: 54px;
         place-items: center;
-        width: 54px;
+        border: 1px solid var(--line-strong);
+        border-radius: 50%;
+        color: var(--ink);
+        background: oklch(18% 0.012 248);
       }
 
-      .command-strip {
-        align-items: center;
-        background: oklch(17.5% 0.011 248);
-        border-top: 1px solid var(--border);
+      .action-row {
+        justify-content: space-between;
+        gap: 12px;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        padding: 9px 10px;
+        background: oklch(18.2% 0.012 248);
+      }
+
+      .action-row.legend-row {
         display: grid;
-        gap: 8px;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        padding: 10px 12px;
+        grid-template-columns: minmax(0, 1fr) auto;
       }
 
-      .command-strip .btn {
-        width: 100%;
+      .action-row.legend-row .shortcut-legend {
+        grid-column: 1 / -1;
       }
 
-      kbd {
-        background: oklch(18% 0.012 246);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        color: var(--muted);
-        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 0.68rem;
-        line-height: 1;
-        padding: 3px 5px;
+      .action-left,
+      .action-right {
+        gap: 7px;
+        flex-wrap: nowrap;
       }
 
-      .decision-summary {
-        display: grid;
-        gap: 8px;
-        grid-template-columns: 1fr 1fr;
+      .action-left {
+        flex: 0 0 auto;
       }
 
-      .metric {
-        background: oklch(18.8% 0.012 246);
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        display: grid;
-        gap: 2px;
-        padding: 9px;
+      .action-right {
+        justify-content: flex-end;
+        margin-left: auto;
       }
 
-      .metric strong {
-        font-size: 1rem;
+      .slot-pill {
+        gap: 7px;
+        height: 32px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 0 9px;
+        background: oklch(17% 0.011 248);
+        font-size: 0.72rem;
+        white-space: nowrap;
       }
 
-      .metric span {
+      .slot-pill strong {
+        color: var(--ink);
+      }
+
+      .shortcut-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding-top: 2px;
         color: var(--muted);
         font-size: 0.72rem;
       }
 
-      .decision-actions {
-        display: grid;
-        gap: 8px;
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .inline-confirm {
-        background: var(--danger-soft);
-        border: 1px solid oklch(50% 0.11 31);
-        border-radius: 8px;
-        display: grid;
-        gap: 8px;
-        padding: 10px;
-      }
-
-      .inline-confirm strong {
-        font-size: 0.82rem;
-      }
-
-      .inline-confirm span {
-        color: var(--muted);
-        font-size: 0.75rem;
-        line-height: 1.35;
-      }
-
-      .decision-inline {
-        background: var(--surface);
-        border-top: 1px solid var(--border);
-        display: grid;
-        grid-template-columns: 1fr;
-        min-height: 0;
-        min-width: 0;
-      }
-
-      .decision-inline .decision-top {
+      .shortcut-legend span {
+        display: inline-flex;
         align-items: center;
-        border-bottom: 1px solid var(--border);
-        display: grid;
-        gap: 10px;
-        grid-template-columns: auto minmax(0, 1fr) auto;
-        padding: 10px 12px;
+        gap: 4px;
       }
 
-      .decision-inline details {
-        border-top: 1px solid var(--border);
-      }
-
-      .decision-inline .decision-head {
-        align-items: center;
-      }
-
-      .decision-inline .decision-title {
-        display: grid;
-        gap: 2px;
-      }
-
-      .decision-inline .decision-title h3 {
-        font-size: 0.86rem;
-      }
-
-      .decision-inline .decision-summary {
-        display: flex;
-        flex-wrap: wrap;
-      }
-
-      .decision-inline .metric {
-        align-items: center;
-        display: flex;
-        gap: 7px;
-        min-height: 32px;
-        padding: 6px 8px;
-      }
-
-      .decision-inline .metric strong {
-        font-size: 0.85rem;
-      }
-
-      .decision-inline .metric span {
-        font-size: 0.7rem;
-      }
-
-      .decision-inline .decision-actions {
-        display: flex;
-        gap: 8px;
-      }
-
-      .decision-inline .inline-confirm {
-        align-items: center;
-        display: flex;
-        grid-column: 1 / -1;
-        justify-content: space-between;
-        padding: 8px 9px;
+      .shortcut-legend .shortcut {
+        color: var(--focus);
       }
 
       .candidate-section {
         display: grid;
-        grid-template-rows: auto 1fr;
-        min-height: 0;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        min-height: 230px;
+        background: var(--panel);
       }
 
-      .section-head {
+      .candidate {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
         align-items: center;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        gap: 12px;
-        justify-content: space-between;
-        padding: 11px 12px;
-      }
-
-      .candidate-list {
-        display: grid;
-        gap: 2px;
-        overflow: auto;
-        padding: 8px;
-      }
-
-      .candidate-row {
-        background: transparent;
-        border: 1px solid transparent;
-        border-radius: 7px;
-        color: var(--text);
-        display: grid;
-        gap: 7px;
+        gap: 10px;
         padding: 9px;
-        text-align: left;
       }
 
-      .candidate-row.selected {
-        background: var(--surface-2);
-        border-color: var(--focus);
-      }
-
-      .candidate-row.marked {
-        background: var(--keep-soft);
+      .candidate.marked {
         border-color: oklch(47% 0.09 154);
-      }
-
-      .candidate-name {
-        font-size: 0.8rem;
-        font-weight: 650;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        background: var(--keep-soft);
       }
 
       .candidate-meta {
-        color: var(--muted);
-        display: flex;
         flex-wrap: wrap;
-        font-size: 0.72rem;
         gap: 8px;
+        margin-top: 4px;
+      }
+
+      .mark-dot {
+        display: inline-grid;
+        width: 25px;
+        height: 25px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+      }
+
+      .candidate.marked .mark-dot {
+        border-color: oklch(56% 0.1 154);
+        color: var(--keep);
       }
 
       details {
-        border-top: 1px solid var(--border);
+        border-top: 1px solid var(--line);
       }
 
       summary {
-        color: var(--muted);
         cursor: pointer;
+        padding: 10px;
+        color: var(--muted);
         font-size: 0.78rem;
-        padding: 11px 12px;
       }
 
-      .dock-workspace {
+      .confirm-line {
         display: grid;
-        grid-template-columns: 320px minmax(420px, 1fr);
-        min-height: 660px;
-        min-width: 0;
-      }
-
-      .dock-workspace .stage-area {
-        grid-template-rows: auto auto minmax(310px, 1fr) auto;
-      }
-
-      .stage-action-dock {
+        grid-template-columns: minmax(0, 1fr) auto;
         align-items: center;
-        background: oklch(19% 0.012 248);
-        border-bottom: 1px solid var(--border);
-        display: grid;
-        gap: 8px;
-        grid-template-columns: minmax(0, 1fr) auto auto auto;
-        padding: 10px 12px;
+        gap: 10px;
+        border-bottom: 1px solid oklch(50% 0.11 31);
+        padding: 9px 10px;
+        background: var(--danger-soft);
       }
 
-      .stage-action-dock .small {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      .confirm-line.keep-line {
+        border-bottom-color: oklch(47% 0.09 154);
+        background: var(--keep-soft);
       }
 
-      .right-grid {
-        border-top: 1px solid var(--border);
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        min-height: 214px;
+      .confirm-line strong {
+        display: block;
+        font-size: 0.82rem;
       }
 
-      .right-grid .candidate-section:first-child {
-        border-right: 1px solid var(--border);
-      }
-
-      .sort-menu-wrap {
-        position: relative;
-      }
-
-      .sort-menu {
-        background: var(--surface-2);
-        border: 1px solid var(--border-strong);
-        border-radius: 8px;
-        box-shadow: var(--shadow);
-        display: grid;
-        gap: 3px;
-        margin-top: 8px;
-        padding: 6px;
-        position: absolute;
-        right: 0;
-        top: 100%;
-        width: 232px;
-        z-index: 3;
-      }
-
-      .sort-menu button {
-        border-color: transparent;
-        justify-content: space-between;
-        width: 100%;
-      }
-
-      .sort-menu .active {
-        background: oklch(28% 0.045 68);
-        color: var(--focus);
+      .confirm-line span {
+        color: var(--muted);
+        font-size: 0.74rem;
       }
 
       @media (max-width: 1180px) {
-        .workspace,
-        .dock-workspace {
+        .workbench {
           grid-template-columns: 1fr;
         }
 
-        .queue-rail,
-        .decision-rail {
-          border: 0;
-        }
-
         .queue-rail {
-          border-bottom: 1px solid var(--border);
-        }
-
-        .decision-rail {
-          border-top: 1px solid var(--border);
-        }
-
-        .torrent-list {
-          grid-auto-flow: column;
-          grid-auto-columns: minmax(220px, 1fr);
-          overflow-x: auto;
-        }
-
-        .stage-area {
-          min-height: 520px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
         }
       }
 
       @media (max-width: 720px) {
         .page {
           max-width: 100vw;
+          overflow: hidden;
           padding: 12px;
-          width: 100vw;
         }
 
         .brief,
         .mockup-label,
-        .frame {
-          max-width: calc(100vw - 24px);
-          width: calc(100vw - 24px);
-        }
-
-        .brief,
-        .mockup-label,
-        .titlebar,
-        .queue-head,
-        .decision-head,
+        .topbar,
         .stage-head,
-        .stage-action-dock {
+        .action-row,
+        .confirm-line {
+          display: grid;
+          grid-template-columns: 1fr;
           align-items: stretch;
-          display: grid;
         }
 
-        .brand,
-        .brief,
-        .mockup-label,
-        .queue-rail,
-        .decision-rail,
-        .stage-title {
-          min-width: 0;
-        }
-
-        .brand strong {
-          font-size: 1rem;
-        }
-
-        .title-meta {
-          display: none;
-        }
-
-        .title-actions {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          min-width: 0;
-        }
-
-        .status-pill {
-          justify-content: center;
-          min-width: 0;
-        }
-
-        .brief .rule {
-          white-space: normal;
-        }
-
-        .brief > *,
-        .mockup-label > * {
-          min-width: 0;
+        .brief h1 {
+          max-width: 24ch;
         }
 
         .brief p,
         .mockup-label p {
-          max-width: 34ch;
+          max-width: 38ch;
+          overflow-wrap: anywhere;
         }
 
-        .filter-row,
-        .sort-row,
-        .decision-summary,
-        .decision-actions,
-        .command-strip,
-        .decision-inline,
-        .right-grid {
+        .scene,
+        .url-pill,
+        .api-pill {
+          white-space: normal;
+        }
+
+        .qbt-cluster {
+          display: grid;
           grid-template-columns: 1fr;
+          align-items: start;
         }
 
-        .stage-action-dock {
-          grid-template-columns: 1fr;
+        .url-pill,
+        .api-pill {
+          width: 100%;
+          overflow-wrap: anywhere;
         }
 
-        .stage-action-dock .btn,
-        .stage-head .btn,
-        .title-actions .btn {
+        .qbt-cluster .btn {
+          justify-self: start;
+        }
+
+        .action-left {
+          display: grid;
+          grid-template-columns: repeat(4, 50px);
+          justify-content: start;
+        }
+
+        .action-right {
+          display: grid;
+          grid-template-columns: 50px minmax(0, 1fr);
+          width: 100%;
+          margin-left: 0;
+        }
+
+        .slot-pill {
+          grid-column: 1 / -1;
+          justify-content: center;
           width: 100%;
         }
 
-        .decision-inline .decision-top {
-          grid-template-columns: 1fr;
+        .action-right .btn.reject {
+          grid-column: 1 / -1;
         }
 
-        .sort-menu {
-          left: 0;
-          right: auto;
+        .panel-head {
+          display: grid;
+          grid-template-columns: 1fr;
+          align-items: start;
+        }
+
+        .torrent-meta {
+          justify-content: start;
+          gap: 8px;
         }
       }
     </style>
   </head>
   <body>
+    <svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden">
+      <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5"></path><path d="m5 12 7-7 7 7"></path></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"></path></symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="m9 12 2 2 4-5"></path></symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"></path></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></symbol>
+      <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7Z"></path></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-9 9 8.7 8.7 0 0 1-6-2.3"></path><path d="M3 12a9 9 0 0 1 15-6.7"></path><path d="M18 3v5h-5"></path><path d="M6 21v-5h5"></path></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7A2 2 0 1 1 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1a2 2 0 1 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z"></path></symbol>
+      <symbol id="i-skip-back" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8v16Z"></path><path d="M5 19V5"></path></symbol>
+      <symbol id="i-skip-forward" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8V4Z"></path><path d="M19 5v14"></path></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6 18 20H6L5 6"></path><path d="M10 11v5"></path><path d="M14 11v5"></path></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></symbol>
+    </svg>
+
     <main class="page">
       <section class="brief" aria-label="mockup goal">
         <div>
-          <h1>Queue controls, consolidated</h1>
+          <h1>Layout A shortcut treatments</h1>
           <p>
-            Filters live once in the queue rail. Refresh status lives beside the queue title. Review commands live once near the file decision, and the old bottom status and keybind strip is gone.
+            Every mockup keeps the same Layout A structure: queue rail left, preview first, one command row, then candidates. Only the keyboard shortcut presentation changes.
           </p>
         </div>
-        <span class="rule">Product register, restrained iron palette</span>
+        <span class="scene">Same layout, different key treatments</span>
       </section>
 
       <section class="mockup-set" aria-labelledby="mockup-a-title">
         <div class="mockup-label">
           <div>
-            <h2 id="mockup-a-title">Mockup A, recommended decision dock</h2>
-            <p>Best when Keep, Reject, candidates, and capacity should stay under the active preview controls.</p>
+            <h2 id="mockup-a-title">A1. Inline key text</h2>
+            <p>Shortcut letter sits inline with the icon. This is compact and always visible without adding another row.</p>
           </div>
-          <p>No bottom bar. No duplicate command rows.</p>
+          <p>Most compact.</p>
         </div>
 
-        <article class="frame" aria-label="recommended decision dock mockup">
-          <header class="titlebar">
+        <article class="frame" aria-label="recommended two column mockup">
+          <header class="topbar">
             <div class="brand">
-              <span class="brand-mark" aria-hidden="true"></span>
-              <strong>qBittorrent Review Queue</strong>
-              <span class="title-meta">127.0.0.1:8080</span>
+              <span class="brand-mark"><svg class="icon sm"><use href="#i-check"></use></svg></span>
+              <span>qBittorrent Review Queue</span>
             </div>
-            <div class="title-actions">
-              <button class="btn" type="button">Settings</button>
+            <div class="qbt-cluster">
+              <span class="url-pill">http://127.0.0.1:8080</span>
+              <span class="api-pill"><span class="api-dot"></span>API connected</span>
+              <button class="btn" type="button"><svg class="icon"><use href="#i-settings"></use></svg><span>Settings</span></button>
             </div>
           </header>
-
-          <div class="workspace">
-            <aside class="queue-rail" aria-label="review queue">
-              <div class="rail-top">
-                <div class="queue-head">
-                  <div class="queue-title">
-                    <h3>Queue</h3>
-                    <span class="subtle">8 completed torrents</span>
-                  </div>
-                  <button class="btn primary" type="button">Refresh</button>
-                </div>
-                <div class="sync-line">
-                  <span class="status-dot"></span>
-                  <span>Api connected, refreshed 24 sec ago</span>
-                </div>
-                <div class="filter-row" aria-label="queue filters">
-                  <button class="filter-chip active" type="button"><span>All</span><strong>8</strong></button>
-                  <button class="filter-chip" type="button"><span>With video</span><strong>7</strong></button>
-                  <button class="filter-chip" type="button"><span>Attention</span><strong>1</strong></button>
-                </div>
+          <div class="workbench">
+            <aside class="queue-rail" aria-label="Queue">
+              <div class="queue-top">
+                <div class="queue-title"><svg class="icon"><use href="#i-list"></use></svg><h3>Queue</h3></div>
+                <button class="icon-btn primary" type="button" aria-label="Refresh queue" title="Refresh queue"><svg class="icon"><use href="#i-refresh"></use></svg></button>
               </div>
-
-              <div class="sort-box" aria-label="queue sort">
+              <div class="sort-box">
                 <div class="sort-row">
                   <label for="sort-a">Sort</label>
-                  <select id="sort-a">
-                    <option>Added on</option>
-                    <option>Name</option>
-                    <option>Size</option>
-                  </select>
-                  <div class="seg" aria-label="sort direction">
-                    <button class="active" type="button">Desc</button>
-                    <button type="button">Asc</button>
-                  </div>
+                  <button class="select-btn" id="sort-a" type="button"><span>Added</span><svg class="icon sm"><use href="#i-chevron-right"></use></svg></button>
+                  <button class="sort-direction active" type="button" aria-label="Sort newest first" title="Newest first"><svg class="icon"><use href="#i-arrow-down"></use></svg></button>
                 </div>
-                <span class="small">Newest completed torrents first</span>
+                <span class="muted">Newest first</span>
               </div>
-
-              <div class="torrent-list" aria-label="torrent list">
-                <button class="torrent active" type="button">
-                  <span class="torrent-line">
-                    <span class="torrent-name">Ferry.2024.2160p.WEB-DL</span>
-                    <span class="row-meta">9.4 GB</span>
-                  </span>
-                  <span class="meta-line">
-                    <span class="row-meta">4 videos</span>
-                    <span class="row-meta">added 10:34</span>
-                  </span>
-                </button>
-                <button class="torrent" type="button">
-                  <span class="torrent-line">
-                    <span class="torrent-name">Archive Set S02</span>
-                    <span class="row-meta">5.1 GB</span>
-                  </span>
-                  <span class="meta-line">
-                    <span class="row-meta">2 videos</span>
-                    <span class="row-meta">added 09:18</span>
-                  </span>
-                </button>
-                <button class="torrent" type="button">
-                  <span class="torrent-line">
-                    <span class="torrent-name">Concert.Rough.Cut</span>
-                    <span class="row-meta">4.8 GB</span>
-                  </span>
-                  <span class="meta-line">
-                    <span class="row-meta">3 videos</span>
-                    <span class="row-meta">added yesterday</span>
-                  </span>
-                </button>
-                <button class="torrent" type="button">
-                  <span class="torrent-line">
-                    <span class="torrent-name">Old.Batches.Mixed</span>
-                    <span class="row-meta">3.1 GB</span>
-                  </span>
-                  <span class="meta-line">
-                    <span class="row-meta">attention</span>
-                    <span class="row-meta">path mapping</span>
-                  </span>
-                </button>
+              <div class="torrent-head"><span>Torrents <span class="count">8</span></span><span class="muted">Size</span></div>
+              <div class="torrent-list">
+                <button class="torrent active" type="button"><span class="torrent-main"><span class="torrent-name">Ferry.2024.2160p.WEB-DL</span><span class="torrent-size">9.4 GB</span></span><span class="torrent-meta"><span>4 videos</span><span>10:34</span></span></button>
+                <button class="torrent" type="button"><span class="torrent-main"><span class="torrent-name">Archive Set S02</span><span class="torrent-size">5.1 GB</span></span><span class="torrent-meta"><span>2 videos</span><span>09:18</span></span></button>
+                <button class="torrent" type="button"><span class="torrent-main"><span class="torrent-name">Concert.Rough.Cut</span><span class="torrent-size">4.8 GB</span></span><span class="torrent-meta"><span>3 videos</span><span>yesterday</span></span></button>
               </div>
             </aside>
 
-            <section class="stage-area" aria-label="selected media">
+            <section class="main-area" aria-label="Review workbench">
               <div class="stage-head">
-                <div class="stage-title">
+                <div>
                   <strong class="file-title">Ferry.2024.main.mkv</strong>
                   <p class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</p>
                 </div>
-                <button class="btn" type="button"><kbd>T</kbd>Open external</button>
+                <button class="cmd-btn" type="button" aria-label="Open external, T" title="Open external, T"><svg class="icon"><use href="#i-external"></use></svg><span class="shortcut">T</span></button>
               </div>
               <div class="preview">
-                <div class="video-box">
-                  <div class="video-plate">
-                    <span class="play-mark">Play</span>
-                    <span>Embedded preview</span>
-                  </div>
+                <div class="video">
+                  <div class="video-plate"><span class="play"><svg class="icon"><use href="#i-play"></use></svg></span><span>Embedded preview</span></div>
                 </div>
               </div>
-              <nav class="command-strip" aria-label="review navigation">
-                <button class="btn" type="button"><kbd>Q</kbd>Prev torrent</button>
-                <button class="btn" type="button"><kbd>W</kbd>Prev video</button>
-                <button class="btn primary" type="button"><kbd>F</kbd>Mark selected</button>
-                <button class="btn" type="button"><kbd>S</kbd>Next video</button>
-                <button class="btn" type="button"><kbd>A</kbd>Next torrent</button>
-              </nav>
-
-              <section class="decision-inline" aria-label="review decision">
-                <div class="decision-top">
-                  <div class="decision-head">
-                    <div class="decision-title">
-                      <h3>Review</h3>
-                      <span class="subtle">Marked files and delete risk</span>
-                    </div>
-                    <span class="status-pill">2 marked</span>
-                  </div>
-                  <div class="decision-summary">
-                    <div class="metric">
-                      <strong>18 / 40</strong>
-                      <span>slots after Keep</span>
-                    </div>
-                    <div class="metric">
-                      <strong>2.9 GB</strong>
-                      <span>leftovers delete</span>
-                    </div>
-                  </div>
-                  <div class="decision-actions">
-                    <button class="btn keep" type="button"><kbd>E</kbd>Keep marked</button>
-                    <button class="btn reject" type="button"><kbd>D</kbd>Reject torrent</button>
-                  </div>
-                  <div class="inline-confirm">
-                    <strong>Reject deletes every file in this torrent.</strong>
-                    <span>Shown only after first Reject. Second Reject confirms qBittorrent delete-with-files.</span>
-                  </div>
+              <nav class="action-row" aria-label="Review commands">
+                <div class="action-left">
+                  <button class="cmd-btn" type="button" aria-label="Previous torrent, Q" title="Previous torrent, Q"><svg class="icon"><use href="#i-skip-back"></use></svg><span class="shortcut">Q</span></button>
+                  <button class="cmd-btn" type="button" aria-label="Previous video, W" title="Previous video, W"><svg class="icon"><use href="#i-chevron-left"></use></svg><span class="shortcut">W</span></button>
+                  <button class="cmd-btn" type="button" aria-label="Next video, S" title="Next video, S"><svg class="icon"><use href="#i-chevron-right"></use></svg><span class="shortcut">S</span></button>
+                  <button class="cmd-btn" type="button" aria-label="Next torrent, A" title="Next torrent, A"><svg class="icon"><use href="#i-skip-forward"></use></svg><span class="shortcut">A</span></button>
                 </div>
-
-                <section class="candidate-section" aria-label="video candidates">
-                  <div class="section-head">
-                    <h3>Candidates</h3>
-                    <span class="small">largest first</span>
-                  </div>
-                  <div class="candidate-list">
-                    <button class="candidate-row selected marked" type="button">
-                      <span class="candidate-name">Ferry.2024.main.mkv</span>
-                      <span class="candidate-meta"><span>5.7 GB</span><span>index 0</span><span>previewing</span><span>marked</span></span>
-                    </button>
-                    <button class="candidate-row marked" type="button">
-                      <span class="candidate-name">Ferry.2024.extra.mkv</span>
-                      <span class="candidate-meta"><span>2.8 GB</span><span>index 1</span><span>marked</span></span>
-                    </button>
-                    <button class="candidate-row" type="button">
-                      <span class="candidate-name">sample.mp4</span>
-                      <span class="candidate-meta"><span>74 MB</span><span>index 2</span><span>unmarked</span></span>
-                    </button>
-                    <button class="candidate-row" type="button">
-                      <span class="candidate-name">behind-the-scenes.mkv</span>
-                      <span class="candidate-meta"><span>62 MB</span><span>index 3</span><span>unmarked</span></span>
-                    </button>
-                  </div>
-                </section>
-
-                <details>
-                  <summary>12 junk files, 148 MB</summary>
-                </details>
+                <div class="action-right">
+                  <span class="slot-pill"><strong>2</strong> marked, <strong>18 / 40</strong> slots</span>
+                  <button class="cmd-btn primary" type="button" aria-label="Mark selected, F" title="Mark selected, F"><svg class="icon"><use href="#i-check-circle"></use></svg><span class="shortcut">F</span></button>
+                  <button class="btn keep" type="button" aria-label="Keep marked, E" title="Keep marked, E"><svg class="icon"><use href="#i-check"></use></svg><span class="shortcut">E</span><span>Keep</span></button>
+                  <button class="btn reject" type="button" aria-label="Reject torrent, D" title="Reject torrent, D"><svg class="icon"><use href="#i-trash"></use></svg><span class="shortcut">D</span><span>Reject</span></button>
+                </div>
+              </nav>
+              <section class="candidate-section" aria-label="Candidates">
+                <div class="panel-head"><h3>Candidates</h3><span class="muted">Largest first</span></div>
+                <div class="candidate-list">
+                  <button class="candidate selected marked" type="button"><span class="mark-dot"><svg class="icon sm"><use href="#i-check"></use></svg></span><span><span class="candidate-name">Ferry.2024.main.mkv</span><span class="candidate-meta"><span>5.7 GB</span><span>index 0</span><span>previewing</span></span></span></button>
+                  <button class="candidate marked" type="button"><span class="mark-dot"><svg class="icon sm"><use href="#i-check"></use></svg></span><span><span class="candidate-name">Ferry.2024.extra.mkv</span><span class="candidate-meta"><span>2.8 GB</span><span>index 1</span></span></span></button>
+                  <button class="candidate" type="button"><span class="mark-dot"></span><span><span class="candidate-name">sample.mp4</span><span class="candidate-meta"><span>74 MB</span><span>index 2</span></span></span></button>
+                </div>
+                <details><summary>12 junk files, 148 MB</summary></details>
               </section>
             </section>
           </div>
@@ -1176,150 +950,134 @@
       <section class="mockup-set" aria-labelledby="mockup-b-title">
         <div class="mockup-label">
           <div>
-            <h2 id="mockup-b-title">Mockup B, stage action dock</h2>
-            <p>Best when you want more stage width and fewer side panels. Sort menu shows every field and direction pair.</p>
+            <h2 id="mockup-b-title">A2. Split key cell</h2>
+            <p>Each command button has a dedicated key cell. Keys are easier to scan, but controls get a little wider.</p>
           </div>
-          <p>Still one refresh status. Still no footer.</p>
+          <p>Most explicit.</p>
         </div>
 
-        <article class="frame" aria-label="stage action dock mockup">
-          <header class="titlebar">
+        <article class="frame" aria-label="layout A split key cell mockup">
+          <header class="topbar">
             <div class="brand">
-              <span class="brand-mark" aria-hidden="true"></span>
-              <strong>qBittorrent Review Queue</strong>
-              <span class="title-meta">127.0.0.1:8080</span>
+              <span class="brand-mark"><svg class="icon sm"><use href="#i-check"></use></svg></span>
+              <span>qBittorrent Review Queue</span>
             </div>
-            <div class="title-actions">
-              <button class="btn" type="button">Settings</button>
+            <div class="qbt-cluster">
+              <span class="url-pill">http://127.0.0.1:8080</span>
+              <span class="api-pill"><span class="api-dot"></span>API connected</span>
+              <button class="btn" type="button"><svg class="icon"><use href="#i-settings"></use></svg><span>Settings</span></button>
             </div>
           </header>
-
-          <div class="dock-workspace">
-            <aside class="queue-rail" aria-label="review queue compact">
-              <div class="rail-top">
-                <div class="queue-head">
-                  <div class="queue-title">
-                    <h3>Queue</h3>
-                    <span class="subtle">8 completed torrents</span>
-                  </div>
-                  <button class="btn primary" type="button">Refresh</button>
-                </div>
-                <div class="sync-line warning">
-                  <span class="status-dot"></span>
-                  <span>Api connected, refresh running, 2 details pending</span>
-                </div>
-                <div class="filter-row" aria-label="queue filters compact">
-                  <button class="filter-chip active" type="button"><span>All</span><strong>8</strong></button>
-                  <button class="filter-chip" type="button"><span>With video</span><strong>7</strong></button>
-                  <button class="filter-chip" type="button"><span>Attention</span><strong>1</strong></button>
-                </div>
-              </div>
-
-              <div class="sort-box" aria-label="expanded queue sort">
-                <div class="queue-head">
-                  <label>Sort queue</label>
-                  <div class="sort-menu-wrap">
-                    <button class="btn" type="button">Added on, desc</button>
-                    <div class="sort-menu" role="menu" aria-label="sort options">
-                      <button type="button" role="menuitem"><span>Name</span><span>Asc</span></button>
-                      <button type="button" role="menuitem"><span>Name</span><span>Desc</span></button>
-                      <button type="button" role="menuitem"><span>Size</span><span>Asc</span></button>
-                      <button type="button" role="menuitem"><span>Size</span><span>Desc</span></button>
-                      <button type="button" role="menuitem"><span>Added on</span><span>Asc</span></button>
-                      <button class="active" type="button" role="menuitem"><span>Added on</span><span>Desc</span></button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="torrent-list" aria-label="torrent list compact">
-                <button class="torrent active" type="button">
-                  <span class="torrent-line"><span class="torrent-name">Ferry.2024.2160p.WEB-DL</span><span class="row-meta">9.4 GB</span></span>
-                  <span class="meta-line"><span class="row-meta">4 videos</span><span class="row-meta">added 10:34</span></span>
-                </button>
-                <button class="torrent" type="button">
-                  <span class="torrent-line"><span class="torrent-name">Archive Set S02</span><span class="row-meta">5.1 GB</span></span>
-                  <span class="meta-line"><span class="row-meta">2 videos</span><span class="row-meta">added 09:18</span></span>
-                </button>
-                <button class="torrent" type="button">
-                  <span class="torrent-line"><span class="torrent-name">Concert.Rough.Cut</span><span class="row-meta">4.8 GB</span></span>
-                  <span class="meta-line"><span class="row-meta">3 videos</span><span class="row-meta">added yesterday</span></span>
-                </button>
+          <div class="workbench">
+            <aside class="queue-rail" aria-label="Queue">
+              <div class="queue-top"><div class="queue-title"><svg class="icon"><use href="#i-list"></use></svg><h3>Queue</h3></div><button class="icon-btn primary" type="button" aria-label="Refresh queue" title="Refresh queue"><svg class="icon"><use href="#i-refresh"></use></svg></button></div>
+              <div class="sort-box"><div class="sort-row"><label for="sort-b">Sort</label><button class="select-btn" id="sort-b" type="button"><span>Added</span><svg class="icon sm"><use href="#i-chevron-right"></use></svg></button><button class="sort-direction active" type="button" aria-label="Sort newest first" title="Newest first"><svg class="icon"><use href="#i-arrow-down"></use></svg></button></div><span class="muted">Newest first</span></div>
+              <div class="torrent-head"><span>Torrents <span class="count">8</span></span><span class="muted">Size</span></div>
+              <div class="torrent-list">
+                <button class="torrent active" type="button"><span class="torrent-main"><span class="torrent-name">Ferry.2024.2160p.WEB-DL</span><span class="torrent-size">9.4 GB</span></span><span class="torrent-meta"><span>4 videos</span><span>10:34</span></span></button>
+                <button class="torrent" type="button"><span class="torrent-main"><span class="torrent-name">Archive Set S02</span><span class="torrent-size">5.1 GB</span></span><span class="torrent-meta"><span>2 videos</span><span>09:18</span></span></button>
+                <button class="torrent" type="button"><span class="torrent-main"><span class="torrent-name">Ferry.2024.2160p.WEB-DL</span><span class="torrent-size">9.4 GB</span></span><span class="torrent-meta"><span>4 videos</span><span>10:34</span></span></button>
               </div>
             </aside>
 
-            <section class="stage-area" aria-label="selected media compact">
+            <section class="main-area" aria-label="Review workbench">
               <div class="stage-head">
-                <div class="stage-title">
-                  <strong class="file-title">Ferry.2024.main.mkv</strong>
-                  <p class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</p>
+                <div><strong class="file-title">Ferry.2024.main.mkv</strong><p class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</p></div>
+                <button class="cmd-btn split-key" type="button" aria-label="Open external, T" title="Open external, T"><span class="key-cell"><span class="shortcut">T</span></span><svg class="icon"><use href="#i-external"></use></svg></button>
+              </div>
+              <div class="preview"><div class="video"><div class="video-plate"><span class="play"><svg class="icon"><use href="#i-play"></use></svg></span><span>Embedded preview</span></div></div></div>
+              <nav class="action-row" aria-label="Review commands">
+                <div class="action-left">
+                  <button class="cmd-btn split-key" type="button" aria-label="Previous torrent, Q" title="Previous torrent, Q"><span class="key-cell"><span class="shortcut">Q</span></span><svg class="icon"><use href="#i-skip-back"></use></svg></button>
+                  <button class="cmd-btn split-key" type="button" aria-label="Previous video, W" title="Previous video, W"><span class="key-cell"><span class="shortcut">W</span></span><svg class="icon"><use href="#i-chevron-left"></use></svg></button>
+                  <button class="cmd-btn split-key" type="button" aria-label="Next video, S" title="Next video, S"><span class="key-cell"><span class="shortcut">S</span></span><svg class="icon"><use href="#i-chevron-right"></use></svg></button>
+                  <button class="cmd-btn split-key" type="button" aria-label="Next torrent, A" title="Next torrent, A"><span class="key-cell"><span class="shortcut">A</span></span><svg class="icon"><use href="#i-skip-forward"></use></svg></button>
                 </div>
-                <button class="btn" type="button"><kbd>T</kbd>Open external</button>
-              </div>
-
-              <div class="stage-action-dock" aria-label="one action dock">
-                <span class="small">2 marked, 18 / 40 slots after Keep, 2.9 GB leftovers if cleaned</span>
-                <button class="btn primary" type="button"><kbd>F</kbd>Mark selected</button>
-                <button class="btn keep" type="button"><kbd>E</kbd>Keep marked</button>
-                <button class="btn reject" type="button"><kbd>D</kbd>Reject torrent</button>
-              </div>
-
-              <div class="preview">
-                <div class="video-box">
-                  <div class="video-plate">
-                    <span class="play-mark">Play</span>
-                    <span>Embedded preview</span>
-                  </div>
+                <div class="action-right">
+                  <span class="slot-pill"><strong>2</strong> marked, <strong>18 / 40</strong> slots</span>
+                  <button class="cmd-btn split-key primary" type="button" aria-label="Mark selected, F" title="Mark selected, F"><span class="key-cell"><span class="shortcut">F</span></span><svg class="icon"><use href="#i-check-circle"></use></svg></button>
+                  <button class="btn keep split-action" type="button" aria-label="Keep marked, E" title="Keep marked, E"><span class="key-cell"><span class="shortcut">E</span></span><svg class="icon"><use href="#i-check"></use></svg><span>Keep</span></button>
+                  <button class="btn reject split-action" type="button" aria-label="Reject torrent, D" title="Reject torrent, D"><span class="key-cell"><span class="shortcut">D</span></span><svg class="icon"><use href="#i-trash"></use></svg><span>Reject</span></button>
                 </div>
-              </div>
-
-              <nav class="command-strip" aria-label="review navigation compact">
-                <button class="btn" type="button"><kbd>Q</kbd>Prev torrent</button>
-                <button class="btn" type="button"><kbd>W</kbd>Prev video</button>
-                <button class="btn" type="button"><kbd>S</kbd>Next video</button>
-                <button class="btn" type="button"><kbd>A</kbd>Next torrent</button>
-                <button class="btn" type="button">Keyboard help</button>
               </nav>
+              <section class="candidate-section" aria-label="Candidates">
+                <div class="panel-head"><h3>Candidates</h3><span class="muted">Largest first</span></div>
+                <div class="candidate-list">
+                  <button class="candidate selected marked" type="button"><span class="mark-dot"><svg class="icon sm"><use href="#i-check"></use></svg></span><span><span class="candidate-name">Ferry.2024.main.mkv</span><span class="candidate-meta"><span>5.7 GB</span><span>index 0</span><span>previewing</span></span></span></button>
+                  <button class="candidate marked" type="button"><span class="mark-dot"><svg class="icon sm"><use href="#i-check"></use></svg></span><span><span class="candidate-name">Ferry.2024.extra.mkv</span><span class="candidate-meta"><span>2.8 GB</span><span>index 1</span></span></span></button>
+                  <button class="candidate" type="button"><span class="mark-dot"></span><span><span class="candidate-name">sample.mp4</span><span class="candidate-meta"><span>74 MB</span><span>index 2</span></span></span></button>
+                </div>
+                <details><summary>12 junk files, 148 MB</summary></details>
+              </section>
+            </section>
+          </div>
+        </article>
+      </section>
 
-              <div class="right-grid">
-                <section class="candidate-section" aria-label="video candidates compact">
-                  <div class="section-head">
-                    <h3>Candidates</h3>
-                    <span class="small">largest first</span>
-                  </div>
-                  <div class="candidate-list">
-                    <button class="candidate-row selected marked" type="button">
-                      <span class="candidate-name">Ferry.2024.main.mkv</span>
-                      <span class="candidate-meta"><span>5.7 GB</span><span>previewing</span><span>marked</span></span>
-                    </button>
-                    <button class="candidate-row marked" type="button">
-                      <span class="candidate-name">Ferry.2024.extra.mkv</span>
-                      <span class="candidate-meta"><span>2.8 GB</span><span>marked</span></span>
-                    </button>
-                    <button class="candidate-row" type="button">
-                      <span class="candidate-name">sample.mp4</span>
-                      <span class="candidate-meta"><span>74 MB</span><span>unmarked</span></span>
-                    </button>
-                  </div>
-                </section>
+      <section class="mockup-set" aria-labelledby="mockup-c-title">
+        <div class="mockup-label">
+          <div>
+            <h2 id="mockup-c-title">A3. Clean buttons, legend row</h2>
+            <p>Buttons stay icon-first and quiet. A shortcut legend sits in the action row so keys are available without occupying every control.</p>
+          </div>
+          <p>Least clutter.</p>
+        </div>
 
-                <section class="candidate-section" aria-label="confirmation compact">
-                  <div class="section-head">
-                    <h3>Confirmation</h3>
-                    <span class="small">inline only</span>
-                  </div>
-                  <div class="candidate-list">
-                    <div class="inline-confirm">
-                      <strong>Keep will move 2 marked files first.</strong>
-                      <span>Cleanup runs only after moved files verify in the session folder.</span>
-                    </div>
-                    <div class="inline-confirm">
-                      <strong>Reject deletes torrent files.</strong>
-                      <span>This appears beside the action dock, not in a footer or modal.</span>
-                    </div>
-                  </div>
-                </section>
+        <article class="frame" aria-label="layout A shortcut legend mockup">
+          <header class="topbar">
+            <div class="brand"><span class="brand-mark"><svg class="icon sm"><use href="#i-check"></use></svg></span><span>qBittorrent Review Queue</span></div>
+            <div class="qbt-cluster"><span class="url-pill">http://127.0.0.1:8080</span><span class="api-pill"><span class="api-dot"></span>API connected</span><button class="btn" type="button"><svg class="icon"><use href="#i-settings"></use></svg><span>Settings</span></button></div>
+          </header>
+          <div class="workbench">
+            <aside class="queue-rail" aria-label="Queue">
+              <div class="queue-top"><div class="queue-title"><svg class="icon"><use href="#i-list"></use></svg><h3>Queue</h3></div><button class="icon-btn primary" type="button" aria-label="Refresh queue" title="Refresh queue"><svg class="icon"><use href="#i-refresh"></use></svg></button></div>
+              <div class="sort-box"><div class="sort-row"><label for="sort-c">Sort</label><button class="select-btn" id="sort-c" type="button"><span>Added</span><svg class="icon sm"><use href="#i-chevron-right"></use></svg></button><button class="sort-direction active" type="button" aria-label="Sort newest first" title="Newest first"><svg class="icon"><use href="#i-arrow-down"></use></svg></button></div><span class="muted">Newest first</span></div>
+              <div class="torrent-head"><span>Torrents <span class="count">8</span></span><span class="muted">Size</span></div>
+              <div class="torrent-list">
+                <button class="torrent active" type="button"><span class="torrent-main"><span class="torrent-name">Ferry.2024.2160p.WEB-DL</span><span class="torrent-size">9.4 GB</span></span><span class="torrent-meta"><span>4 videos</span><span>10:34</span></span></button>
+                <button class="torrent" type="button"><span class="torrent-main"><span class="torrent-name">Archive Set S02</span><span class="torrent-size">5.1 GB</span></span><span class="torrent-meta"><span>2 videos</span><span>09:18</span></span></button>
+                <button class="torrent" type="button"><span class="torrent-main"><span class="torrent-name">Concert.Rough.Cut</span><span class="torrent-size">4.8 GB</span></span><span class="torrent-meta"><span>3 videos</span><span>yesterday</span></span></button>
               </div>
+            </aside>
+
+            <section class="main-area" aria-label="Review workbench">
+              <div class="stage-head">
+                <div><strong class="file-title">Ferry.2024.main.mkv</strong><p class="path">D:\Downloads\Completed\Ferry.2024\Ferry.2024.main.mkv</p></div>
+                <button class="cmd-btn icon-only" type="button" aria-label="Open external, T" title="Open external, T"><svg class="icon"><use href="#i-external"></use></svg></button>
+              </div>
+              <div class="preview"><div class="video"><div class="video-plate"><span class="play"><svg class="icon"><use href="#i-play"></use></svg></span><span>Embedded preview</span></div></div></div>
+              <nav class="action-row legend-row" aria-label="Review commands">
+                <div class="action-left">
+                  <button class="cmd-btn icon-only" type="button" aria-label="Previous torrent, Q" title="Previous torrent, Q"><svg class="icon"><use href="#i-skip-back"></use></svg></button>
+                  <button class="cmd-btn icon-only" type="button" aria-label="Previous video, W" title="Previous video, W"><svg class="icon"><use href="#i-chevron-left"></use></svg></button>
+                  <button class="cmd-btn icon-only" type="button" aria-label="Next video, S" title="Next video, S"><svg class="icon"><use href="#i-chevron-right"></use></svg></button>
+                  <button class="cmd-btn icon-only" type="button" aria-label="Next torrent, A" title="Next torrent, A"><svg class="icon"><use href="#i-skip-forward"></use></svg></button>
+                </div>
+                <div class="action-right">
+                  <span class="slot-pill"><strong>2</strong> marked, <strong>18 / 40</strong> slots</span>
+                  <button class="cmd-btn icon-only primary" type="button" aria-label="Mark selected, F" title="Mark selected, F"><svg class="icon"><use href="#i-check-circle"></use></svg></button>
+                  <button class="btn keep" type="button" aria-label="Keep marked, E" title="Keep marked, E"><svg class="icon"><use href="#i-check"></use></svg><span>Keep</span></button>
+                  <button class="btn reject" type="button" aria-label="Reject torrent, D" title="Reject torrent, D"><svg class="icon"><use href="#i-trash"></use></svg><span>Reject</span></button>
+                </div>
+                <div class="shortcut-legend" aria-label="Keyboard shortcuts">
+                  <span><span class="shortcut">Q</span> prev torrent</span>
+                  <span><span class="shortcut">W/S</span> video</span>
+                  <span><span class="shortcut">A</span> next torrent</span>
+                  <span><span class="shortcut">F</span> mark</span>
+                  <span><span class="shortcut">E</span> keep</span>
+                  <span><span class="shortcut">D</span> reject</span>
+                  <span><span class="shortcut">T</span> external</span>
+                </div>
+              </nav>
+              <section class="candidate-section" aria-label="Candidates">
+                <div class="panel-head"><h3>Candidates</h3><span class="muted">Largest first</span></div>
+                <div class="candidate-list">
+                  <button class="candidate selected marked" type="button"><span class="mark-dot"><svg class="icon sm"><use href="#i-check"></use></svg></span><span><span class="candidate-name">Ferry.2024.main.mkv</span><span class="candidate-meta"><span>5.7 GB</span><span>index 0</span><span>previewing</span></span></span></button>
+                  <button class="candidate marked" type="button"><span class="mark-dot"><svg class="icon sm"><use href="#i-check"></use></svg></span><span><span class="candidate-name">Ferry.2024.extra.mkv</span><span class="candidate-meta"><span>2.8 GB</span><span>index 1</span></span></span></button>
+                  <button class="candidate" type="button"><span class="mark-dot"></span><span><span class="candidate-name">sample.mp4</span><span class="candidate-meta"><span>74 MB</span><span>index 2</span></span></span></button>
+                </div>
+                <details><summary>12 junk files, 148 MB</summary></details>
+              </section>
             </section>
           </div>
         </article>

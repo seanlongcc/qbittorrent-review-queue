@@ -1,28 +1,35 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import { getQueue, getTorrentDetail, keepTorrent, openTorrentFile, rejectTorrent } from "./api/client";
-import type { QueueResponse } from "./domain/types";
 import {
-  CandidateTable,
-  CandidateTabs,
+  getHistory,
+  getQueue,
+  getTorrentDetail,
+  keepTorrent,
+  openTorrentFile,
+  openTorrentFolder,
+  rejectTorrent,
+} from "./api/client";
+import type { ExecutionHistoryItem, QueueResponse } from "./domain/types";
+import {
   MediaStage,
   QueueSidebar,
+  ReviewCommandBar,
   SettingsPanel,
   TitleBar,
   ToastViewport,
 } from "./review/Workbench";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ReviewPanelTabs } from "./review/ReviewPanelTabs";
 import { commandFromKey, type ReviewCommand } from "./review/keyboard";
 import { sortReviewableTorrents, type QueueSort } from "./review/queueSort";
 import {
   createInitialState,
   getActiveCandidate,
   getActiveTorrent,
-  getAttentionTorrents,
   getMarkedCandidateIndexes,
   getMarkedCandidates,
+  getMovedCandidateIndexes,
   getReviewableTorrents,
   isActiveTorrentMissing,
-  needsKeepConfirmation,
   reviewReducer,
   wouldExceedFolderLimit,
 } from "./review/reviewState";
@@ -30,20 +37,22 @@ import {
 export function App() {
   const [state, dispatch] = useReducer(reviewReducer, undefined, () => createInitialState());
   const [queueSort, setQueueSort] = useState<QueueSort>({ field: "added", direction: "desc" });
+  const [previewMuted, setPreviewMuted] = useState(false);
+  const [historyItems, setHistoryItems] = useState<ExecutionHistoryItem[]>([]);
   const reviewableTorrents = getReviewableTorrents(state);
   const sortedReviewableTorrents = useMemo(
     () => sortReviewableTorrents(reviewableTorrents, queueSort),
     [queueSort, reviewableTorrents],
   );
-  const attentionTorrents = getAttentionTorrents(state);
   const activeTorrent = getActiveTorrent(state);
   const activeCandidate = getActiveCandidate(state);
   const markedCandidates = getMarkedCandidates(state);
   const markedIndexes = getMarkedCandidateIndexes(state);
+  const movedIndexes = getMovedCandidateIndexes(state);
   const activeMissing = isActiveTorrentMissing(state);
 
   const refreshQueue = useCallback(async (options: { toast?: boolean } = {}): Promise<QueueResponse | null> => {
-    dispatch({ type: "queueLoading", toast: options.toast ? "Refreshing qBittorrent queue." : undefined });
+    dispatch({ type: "queueLoading", toast: options.toast ? "Refreshing qBittorrent queue" : undefined });
     try {
       const response = await getQueue();
       dispatch({
@@ -59,9 +68,29 @@ export function App() {
     }
   }, []);
 
+  const refreshHistory = useCallback(async () => {
+    try {
+      const response = await getHistory();
+      setHistoryItems(response.items);
+    } catch {
+      // History is supporting context. Review actions keep their own busy/error state.
+    }
+  }, []);
+
   useEffect(() => {
     void refreshQueue();
   }, [refreshQueue]);
+
+  useEffect(() => {
+    void refreshHistory();
+  }, [refreshHistory]);
+
+  useEffect(() => {
+    const topTorrent = sortedReviewableTorrents[0];
+    if (!state.activeTorrentHash && topTorrent) {
+      dispatch({ type: "selectTorrent", hash: topTorrent.hash });
+    }
+  }, [sortedReviewableTorrents, state.activeTorrentHash]);
 
   useEffect(() => {
     if (!state.settings.connected) {
@@ -113,25 +142,29 @@ export function App() {
       dispatch({ type: "keep" });
       return;
     }
-    const confirmationNeeded = needsKeepConfirmation(state);
-    if (confirmationNeeded && state.armedAction !== "keep") {
+    if (state.armedAction !== "keep") {
       dispatch({ type: "keep" });
       return;
     }
-    dispatch({ type: "actionStarted", label: "Keeping marked files." });
+    dispatch({ type: "actionStarted", label: "Keeping marked files" });
     try {
-      const nextHash = nextSortedTorrentHash(sortedReviewableTorrents, torrent.hash, 1);
-      await keepTorrent(torrent.hash, {
+      const result = await keepTorrent(torrent.hash, {
         fileIndexes: marked.map((candidate) => candidate.fileIndex),
-        confirmed: confirmationNeeded,
+        confirmed: true,
       });
-      dispatch({ type: "actionFinished", notice: `Kept ${marked.length} video${marked.length === 1 ? "" : "s"}.` });
-      dispatch({ type: "torrentRemoved", hash: torrent.hash, nextHash });
+      dispatch({
+        type: "candidatesMoved",
+        hash: torrent.hash,
+        fileIndexes: marked.map((candidate) => candidate.fileIndex),
+        folderCount: result.folderCount,
+      });
+      dispatch({ type: "actionFinished", notice: `Kept ${marked.length} video${marked.length === 1 ? "" : "s"}` });
+      await refreshHistory();
       await refreshQueue();
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
-  }, [refreshQueue, sortedReviewableTorrents, state]);
+  }, [refreshHistory, refreshQueue, state]);
 
   const runReject = useCallback(async () => {
     const torrent = getActiveTorrent(state);
@@ -146,33 +179,54 @@ export function App() {
       dispatch({ type: "reject" });
       return;
     }
-    dispatch({ type: "actionStarted", label: "Deleting torrent with deleteFiles=true." });
+    dispatch({ type: "actionStarted", label: "Deleting torrent with deleteFiles=true" });
     try {
       const nextHash = nextSortedTorrentHash(sortedReviewableTorrents, torrent.hash, 1);
       await rejectTorrent(torrent.hash, { confirmed: true });
-      dispatch({ type: "actionFinished", notice: "Deleted torrent and files." });
+      dispatch({ type: "actionFinished", notice: "Deleted torrent and files" });
       dispatch({ type: "torrentRemoved", hash: torrent.hash, nextHash });
+      await refreshHistory();
       await refreshQueue();
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
-  }, [refreshQueue, sortedReviewableTorrents, state]);
+  }, [refreshHistory, refreshQueue, sortedReviewableTorrents, state]);
 
   const runOpenExternal = useCallback(async () => {
     const torrent = getActiveTorrent(state);
     const candidate = getActiveCandidate(state);
     if (isActiveTorrentMissing(state)) {
-      dispatch({ type: "actionFailed", message: "Selected torrent no longer in qBittorrent. Choose Next or Refresh." });
+      dispatch({ type: "actionFailed", message: "Selected torrent no longer in qBittorrent. Choose Next or Refresh" });
       return;
     }
     if (!torrent || !candidate) {
       dispatch({ type: "openExternal" });
       return;
     }
-    dispatch({ type: "actionStarted", label: `Opening ${candidate.name}.` });
+    dispatch({ type: "actionStarted", label: `Opening ${candidate.name}` });
     try {
       await openTorrentFile(torrent.hash, candidate.fileIndex);
-      dispatch({ type: "actionFinished", notice: `Opened ${candidate.name}.` });
+      dispatch({ type: "actionFinished", notice: `Opened ${candidate.name}` });
+      await refreshHistory();
+    } catch (error) {
+      dispatch({ type: "actionFailed", message: errorMessage(error) });
+    }
+  }, [refreshHistory, state]);
+
+  const runOpenFolder = useCallback(async () => {
+    const torrent = getActiveTorrent(state);
+    if (isActiveTorrentMissing(state)) {
+      dispatch({ type: "actionFailed", message: "Selected torrent no longer in qBittorrent. Choose Next or Refresh" });
+      return;
+    }
+    if (!torrent) {
+      dispatch({ type: "openFolder" });
+      return;
+    }
+    dispatch({ type: "actionStarted", label: `Opening folder for ${torrent.name}` });
+    try {
+      await openTorrentFolder(torrent.hash);
+      dispatch({ type: "actionFinished", notice: `Opened folder for ${torrent.name}` });
     } catch (error) {
       dispatch({ type: "actionFailed", message: errorMessage(error) });
     }
@@ -203,9 +257,17 @@ export function App() {
         void runOpenExternal();
         return;
       }
+      if (command === "openFolder") {
+        void runOpenFolder();
+        return;
+      }
+      if (command === "toggleMute") {
+        setPreviewMuted((muted) => !muted);
+        return;
+      }
       dispatch({ type: command });
     },
-    [runKeep, runOpenExternal, runReject, sortedReviewableTorrents, state.activeTorrentHash],
+    [runKeep, runOpenExternal, runOpenFolder, runReject, sortedReviewableTorrents, state.activeTorrentHash],
   );
 
   useEffect(() => {
@@ -217,8 +279,8 @@ export function App() {
       event.preventDefault();
       handleCommand(command);
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
   }, [handleCommand]);
 
   useEffect(() => {
@@ -237,14 +299,13 @@ export function App() {
         <TitleBar
           settings={state.settings}
           busy={state.loadingQueue || state.actionBusy}
+          refreshing={state.loadingQueue}
           onSettings={() => dispatch({ type: "toggleSettings" })}
         />
         <section className="qbt-main" aria-label="Review workbench">
           <QueueSidebar
             torrents={sortedReviewableTorrents}
-            attentionTorrents={attentionTorrents}
             activeHash={state.activeTorrentHash}
-            settings={state.settings}
             busy={state.actionBusy}
             loading={state.loadingQueue}
             sort={queueSort}
@@ -258,19 +319,31 @@ export function App() {
               candidate={activeCandidate}
               loading={state.loadingDetail}
               busy={state.actionBusy}
+              muted={previewMuted}
+              onToggleMuted={() => setPreviewMuted((muted) => !muted)}
               onOpenExternal={() => handleCommand("openExternal")}
+              onOpenFolder={() => handleCommand("openFolder")}
             />
-            <CandidateTabs onCommand={handleCommand} />
-            <CandidateTable
-              torrent={activeTorrent}
-              activeCandidate={activeCandidate}
-              markedIndexes={markedIndexes}
-              settings={state.settings}
+            <ReviewCommandBar
+              markedCount={markedIndexes.length}
+              folderCount={state.settings.folderCount}
+              folderLimit={state.settings.sessionFolderLimit}
               armedAction={state.armedAction}
               busy={state.actionBusy}
               activeMissing={activeMissing}
               keepBlocked={activeMissing || markedCandidates.length === 0 || wouldExceedFolderLimit(state)}
-              notice={state.notice}
+              hasTorrent={Boolean(activeTorrent)}
+              onCommand={handleCommand}
+            />
+            <ReviewPanelTabs
+              torrent={activeTorrent}
+              activeCandidate={activeCandidate}
+              markedIndexes={markedIndexes}
+              movedIndexes={movedIndexes}
+              armedAction={state.armedAction}
+              busy={state.actionBusy}
+              activeMissing={activeMissing}
+              historyItems={historyItems}
               onSelectCandidate={(index) => dispatch({ type: "selectCandidate", index })}
               onToggleMark={(fileIndex) => dispatch({ type: "toggleMark", fileIndex })}
               onCommand={handleCommand}

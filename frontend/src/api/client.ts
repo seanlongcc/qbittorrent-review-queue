@@ -2,7 +2,9 @@ import type {
   CleanupRetryPayload,
   FolderPickPayload,
   FolderPickResponse,
+  HistoryResponse,
   KeepPayload,
+  KeepResponse,
   QueueResponse,
   RejectPayload,
   ReviewTorrent,
@@ -40,8 +42,12 @@ export function getTorrentDetail(hash: string): Promise<ReviewTorrent> {
   return apiRequest<ReviewTorrent>(`/api/torrents/${encodeURIComponent(hash)}`);
 }
 
-export function keepTorrent(hash: string, payload: KeepPayload): Promise<{ moved: string[] }> {
-  return apiRequest<{ moved: string[] }>(`/api/torrents/${encodeURIComponent(hash)}/keep`, jsonInit(payload));
+export function getHistory(): Promise<HistoryResponse> {
+  return apiRequest<HistoryResponse>("/api/history");
+}
+
+export function keepTorrent(hash: string, payload: KeepPayload): Promise<KeepResponse> {
+  return apiRequest<KeepResponse>(`/api/torrents/${encodeURIComponent(hash)}/keep`, jsonInit(payload));
 }
 
 export function rejectTorrent(hash: string, payload: RejectPayload): Promise<{ ok: boolean }> {
@@ -60,6 +66,10 @@ export function openTorrentFile(hash: string, fileIndex: number): Promise<{ ok: 
     `/api/torrents/${encodeURIComponent(hash)}/open`,
     jsonInit({ fileIndex }),
   );
+}
+
+export function openTorrentFolder(hash: string): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(`/api/torrents/${encodeURIComponent(hash)}/open-folder`, jsonInit({}));
 }
 
 export function updateSettings(payload: SettingsUpdate): Promise<QueueResponse["settings"]> {
