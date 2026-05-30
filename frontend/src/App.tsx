@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import { getHistory, getQueue, getTorrentDetail, keepTorrent, openTorrentFile, rejectTorrent } from "./api/client";
+import {
+  getHistory,
+  getQueue,
+  getTorrentDetail,
+  keepTorrent,
+  openTorrentFile,
+  openTorrentFolder,
+  rejectTorrent,
+} from "./api/client";
 import type { ExecutionHistoryItem, QueueResponse } from "./domain/types";
 import {
   MediaStage,
@@ -205,6 +213,25 @@ export function App() {
     }
   }, [refreshHistory, state]);
 
+  const runOpenFolder = useCallback(async () => {
+    const torrent = getActiveTorrent(state);
+    if (isActiveTorrentMissing(state)) {
+      dispatch({ type: "actionFailed", message: "Selected torrent no longer in qBittorrent. Choose Next or Refresh" });
+      return;
+    }
+    if (!torrent) {
+      dispatch({ type: "openFolder" });
+      return;
+    }
+    dispatch({ type: "actionStarted", label: `Opening folder for ${torrent.name}` });
+    try {
+      await openTorrentFolder(torrent.hash);
+      dispatch({ type: "actionFinished", notice: `Opened folder for ${torrent.name}` });
+    } catch (error) {
+      dispatch({ type: "actionFailed", message: errorMessage(error) });
+    }
+  }, [state]);
+
   const handleCommand = useCallback(
     (command: ReviewCommand) => {
       if (command === "previousTorrent" || command === "nextTorrent") {
@@ -230,13 +257,17 @@ export function App() {
         void runOpenExternal();
         return;
       }
+      if (command === "openFolder") {
+        void runOpenFolder();
+        return;
+      }
       if (command === "toggleMute") {
         setPreviewMuted((muted) => !muted);
         return;
       }
       dispatch({ type: command });
     },
-    [runKeep, runOpenExternal, runReject, sortedReviewableTorrents, state.activeTorrentHash],
+    [runKeep, runOpenExternal, runOpenFolder, runReject, sortedReviewableTorrents, state.activeTorrentHash],
   );
 
   useEffect(() => {
@@ -291,6 +322,7 @@ export function App() {
               muted={previewMuted}
               onToggleMuted={() => setPreviewMuted((muted) => !muted)}
               onOpenExternal={() => handleCommand("openExternal")}
+              onOpenFolder={() => handleCommand("openFolder")}
             />
             <ReviewCommandBar
               markedCount={markedIndexes.length}

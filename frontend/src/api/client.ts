@@ -68,6 +68,10 @@ export function openTorrentFile(hash: string, fileIndex: number): Promise<{ ok: 
   );
 }
 
+export function openTorrentFolder(hash: string): Promise<{ ok: boolean }> {
+  return apiRequest<{ ok: boolean }>(`/api/torrents/${encodeURIComponent(hash)}/open-folder`, jsonInit({}));
+}
+
 export function updateSettings(payload: SettingsUpdate): Promise<QueueResponse["settings"]> {
   return apiRequest<QueueResponse["settings"]>("/api/settings", jsonInit(payload));
 }

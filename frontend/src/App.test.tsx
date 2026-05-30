@@ -507,6 +507,40 @@ describe("App", () => {
     expect(container.querySelector(".decision-notice")).toBeNull();
   });
 
+  it("opens the selected torrent folder with the G keybind", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === "/api/queue") {
+        return Response.json(queueResponse("abc", "Done Torrent"));
+      }
+      if (url === "/api/history") {
+        return Response.json({ items: [] });
+      }
+      if (url === "/api/torrents/abc") {
+        return Response.json(torrentDetail("abc", "Done Torrent"));
+      }
+      if (url === "/api/torrents/abc/open-folder" && init?.method === "POST") {
+        return Response.json({ ok: true });
+      }
+      throw new Error(`unexpected url ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { container } = render(<App />);
+
+    const video = await screen.findByLabelText("Autoplay video preview");
+    fireEvent.keyDown(video, { key: "G" });
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/torrents/abc/open-folder",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+    expect(await screen.findByText("Opened folder for Done Torrent")).toBeInTheDocument();
+    expect(container.querySelector(".decision-notice")).toBeNull();
+  });
+
   it("handles review keybinds before a focused video can consume them", async () => {
     vi.stubGlobal(
       "fetch",

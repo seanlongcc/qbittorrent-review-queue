@@ -253,6 +253,52 @@ def test_keep_moves_marked_files_after_confirmation_without_deleting_torrent(mon
     assert fake_qbt.deleted == []
 
 
+def test_keep_counts_repeated_moves_when_session_folder_scan_lags(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    first_source = show / "main.mkv"
+    second_source = show / "bonus.mp4"
+    first_source.write_text("video", encoding="utf-8")
+    second_source.write_text("video", encoding="utf-8")
+    session = tmp_path / "session"
+    session.mkdir()
+    visible_session_files = []
+    for index in range(16):
+        existing = session / f"existing-{index}.mkv"
+        existing.write_text("video", encoding="utf-8")
+        visible_session_files.append(existing)
+    original_iterdir = type(session).iterdir
+
+    def lagging_session_iterdir(path):
+        if path == session:
+            return iter(visible_session_files)
+        return original_iterdir(path)
+
+    monkeypatch.setattr(type(session), "iterdir", lagging_session_iterdir)
+    fake_qbt = FakeQbt(
+        files=[
+            {"index": 0, "name": "main.mkv", "size": 100, "progress": 1},
+            {"index": 2, "name": "bonus.mp4", "size": 50, "progress": 1},
+        ]
+    )
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    client = TestClient(create_app())
+
+    first_response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [0], "confirmed": True})
+    second_response = client.post("/api/torrents/abc/keep", json={"fileIndexes": [2], "confirmed": True})
+    settings_response = client.get("/api/settings")
+
+    assert first_response.status_code == 200
+    assert first_response.json()["folderCount"] == 17
+    assert second_response.status_code == 200
+    assert second_response.json()["folderCount"] == 18
+    assert settings_response.json()["folderCount"] == 18
+    assert (session / "main.mkv").exists()
+    assert (session / "bonus.mp4").exists()
+
+
 def test_keep_rejects_non_video_file_indexes(monkeypatch, tmp_path):
     clear_cleanup_failures()
     downloads = tmp_path / "downloads"
@@ -499,6 +545,46 @@ def test_open_external_logs_selected_file(monkeypatch, tmp_path):
     assert item["torrentName"] == "Show"
     assert item["summary"] == "Opened main.mkv externally"
     assert item["files"][0]["sourcePath"] == str(source)
+
+
+def test_open_folder_opens_existing_torrent_folder(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    show = downloads / "Show"
+    show.mkdir(parents=True)
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    opened: list[str] = []
+    monkeypatch.setattr("backend.app.main.open_windows_default", opened.append)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/open-folder")
+
+    assert response.status_code == 200
+    assert opened == ["C:\\Downloads\\Show"]
+    assert read_history_file(tmp_path) == []
+    assert fake_qbt.deleted == []
+
+
+def test_open_folder_returns_404_when_torrent_folder_is_missing(monkeypatch, tmp_path):
+    clear_cleanup_failures()
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    session = tmp_path / "session"
+    session.mkdir()
+    fake_qbt = FakeQbt(files=[])
+    configure_review_env(monkeypatch, tmp_path, downloads, session, fake_qbt)
+    opened: list[str] = []
+    monkeypatch.setattr("backend.app.main.open_windows_default", opened.append)
+    client = TestClient(create_app())
+
+    response = client.post("/api/torrents/abc/open-folder")
+
+    assert response.status_code == 404
+    assert "Torrent folder not found" in response.json()["detail"]
+    assert opened == []
 
 
 def test_failed_open_external_logs_failure(monkeypatch, tmp_path):

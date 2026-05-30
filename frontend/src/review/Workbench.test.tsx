@@ -50,6 +50,7 @@ describe("MediaStage", () => {
         muted
         onToggleMuted={onToggleMuted}
         onOpenExternal={() => undefined}
+        onOpenFolder={() => undefined}
         torrent={{
           hash: "abc",
           name: "Done Torrent",
@@ -74,8 +75,10 @@ describe("MediaStage", () => {
 
     expect((screen.getByLabelText("Autoplay video preview") as HTMLVideoElement).muted).toBe(true);
     expect(labels.indexOf("Unmute preview audio, M")).toBeLessThan(labels.indexOf("Open external, T"));
+    expect(labels.indexOf("Open external, T")).toBeLessThan(labels.indexOf("Open folder, G"));
     expect(screen.getByRole("button", { name: "Unmute preview audio, M" }).parentElement).toHaveClass("preview-actions");
     expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).toHaveClass("preview-actions");
+    expect(screen.getByRole("button", { name: "Open folder, G" }).parentElement).toHaveClass("preview-actions");
     expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).not.toHaveClass("preview-title");
 
     fireEvent.click(screen.getByRole("button", { name: "Unmute preview audio, M" }));
@@ -121,6 +124,30 @@ describe("MediaStage", () => {
 
     expect(pause).toHaveBeenCalledTimes(1);
     expect(onOpenExternal).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the selected torrent folder from the preview action row", () => {
+    const onOpenFolder = vi.fn();
+
+    render(
+      <MediaStage
+        loading={false}
+        onOpenFolder={onOpenFolder}
+        torrent={{
+          hash: "abc",
+          name: "Done Torrent",
+          status: "completed",
+          progress: 1,
+          totalSizeBytes: 1200,
+          savePath: "C:\\Downloads\\Done Torrent",
+        }}
+        candidate={null}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open folder, G" }));
+
+    expect(onOpenFolder).toHaveBeenCalledTimes(1);
   });
 });
 

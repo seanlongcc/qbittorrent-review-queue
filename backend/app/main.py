@@ -17,11 +17,13 @@ from backend.app.cleanup import (
 from backend.app.config import AppSettings, SettingsUpdate, load_settings, public_settings, save_settings
 from backend.app.history import append_history_event, history_file_path, load_history
 from backend.app.media import file_response_for, open_windows_default
-from backend.app.paths import local_filesystem_path, resolve_file_path
+from backend.app.paths import local_filesystem_path, resolve_file_path, resolve_torrent_folder_path
 from backend.app.qbt.client import QbtClient, QbtError
 from backend.app.review import KeepRequest, ReviewWorkflowError, keep_torrent, reject_torrent
+from backend.app.session_count import remember_session_folder_count, session_folder_count
 from backend.app.system_dialog import FolderPickerUnavailable, FolderSelectionCancelled, pick_windows_folder
-from backend.app.torrents import build_torrent_detail, is_video_name, queue_item
+from backend.app.torrents import build_torrent_detail, queue_item
+from backend.app.video_files import is_video_name
 
 
 class KeepPayload(BaseModel):
@@ -372,6 +374,22 @@ def create_app() -> FastAPI:
                 _append_workflow_failure("open_external", torrent_hash, torrent, str(exc))
             raise _qbt_error(exc) from exc
 
+    @app.post("/api/torrents/{torrent_hash}/open-folder")
+    def open_torrent_folder(torrent_hash: str) -> dict[str, bool]:
+        settings = load_settings()
+        try:
+            with _qbt() as client:
+                torrent = _find_torrent(client, torrent_hash)
+            resolved = resolve_torrent_folder_path(torrent, settings)
+            if not resolved.wsl_path.exists() or not resolved.wsl_path.is_dir():
+                raise FileNotFoundError(f"Torrent folder not found: {resolved.wsl_path}")
+            open_windows_default(resolved.windows_path)
+            return {"ok": True}
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except Exception as exc:
+            raise _qbt_error(exc) from exc
+
     @app.post("/api/torrents/{torrent_hash}/keep")
     def keep_torrent_file(torrent_hash: str, payload: KeepPayload) -> Any:
         settings = load_settings()
@@ -399,7 +417,7 @@ def create_app() -> FastAPI:
                 marked = [files_by_index[index] for index in requested_indexes]
                 paths = [resolve_file_path(torrent, file_entry, settings).wsl_path for file_entry in marked]
                 session_folder = local_filesystem_path(settings.session_folder)
-                existing_count = _count_existing_videos(session_folder)
+                existing_count = session_folder_count(session_folder)
                 result = keep_torrent(
                     KeepRequest(
                         confirmed=payload.confirmed,
@@ -410,6 +428,7 @@ def create_app() -> FastAPI:
                     ),
                 )
                 moved = [str(path) for path in result["moved"]]
+                remember_session_folder_count(session_folder, int(result["folderCount"]))
                 _append_history_safely(
                     _keep_success_event(
                         torrent_hash=torrent_hash,
@@ -482,14 +501,5 @@ def create_app() -> FastAPI:
         return {"message": "Frontend build not found. Run npm run build."}
 
     return app
-
-
-def _count_existing_videos(path: Path) -> int:
-    from backend.app.torrents import is_video_name
-
-    if not path.exists():
-        return 0
-    return sum(1 for item in path.iterdir() if item.is_file() and is_video_name(item.name))
-
 
 app = create_app()

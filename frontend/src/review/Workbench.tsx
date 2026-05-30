@@ -178,6 +178,7 @@ export function MediaStage({
   muted = false,
   onToggleMuted,
   onOpenExternal,
+  onOpenFolder,
 }: {
   torrent: ReviewTorrent | null;
   candidate: VideoCandidate | null;
@@ -186,6 +187,7 @@ export function MediaStage({
   muted?: boolean;
   onToggleMuted?: () => void;
   onOpenExternal?: () => void;
+  onOpenFolder?: () => void;
 }) {
   const mediaSrc = torrent && candidate ? `/media/${torrent.hash}/${candidate.fileIndex}` : "";
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -224,6 +226,18 @@ export function MediaStage({
               onClick={openExternal}
             >
               <ExternalLink size={15} />
+            </CommandButton>
+          ) : null}
+          {onOpenFolder ? (
+            <CommandButton
+              aria-label="Open folder, G"
+              className="icon-command"
+              disabled={busy || !torrent}
+              command="G"
+              title="Open folder"
+              onClick={onOpenFolder}
+            >
+              <FolderOpen size={15} />
             </CommandButton>
           ) : null}
         </div>

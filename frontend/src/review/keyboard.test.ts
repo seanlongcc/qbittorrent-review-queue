@@ -11,6 +11,7 @@ describe("keyboard commands", () => {
     expect(commandFromKey(new KeyboardEvent("keydown", { key: "e" }))).toBe("keep");
     expect(commandFromKey(new KeyboardEvent("keydown", { key: "d" }))).toBe("reject");
     expect(commandFromKey(new KeyboardEvent("keydown", { key: "t" }))).toBe("openExternal");
+    expect(commandFromKey(new KeyboardEvent("keydown", { key: "g" }))).toBe("openFolder");
     expect(commandFromKey(new KeyboardEvent("keydown", { key: "m" }))).toBe("toggleMute");
     expect(commandFromKey(new KeyboardEvent("keydown", { key: "Escape" }))).toBe("cancel");
   });

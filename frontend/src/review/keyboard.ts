@@ -7,6 +7,7 @@ export type ReviewCommand =
   | "keep"
   | "reject"
   | "openExternal"
+  | "openFolder"
   | "toggleMute"
   | "cancel";
 
@@ -54,6 +55,9 @@ export function commandFromKey(event: KeyboardEvent): ReviewCommand | null {
   }
   if (key === "t") {
     return "openExternal";
+  }
+  if (key === "g") {
+    return "openFolder";
   }
   if (key === "m") {
     return "toggleMute";

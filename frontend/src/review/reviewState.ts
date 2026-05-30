@@ -46,6 +46,7 @@ export type ReviewAction =
   | { type: "keep" }
   | { type: "reject" }
   | { type: "openExternal" }
+  | { type: "openFolder" }
   | { type: "actionStarted"; label: string }
   | { type: "actionFinished"; notice: string }
   | { type: "actionFailed"; message: string }
@@ -260,6 +261,10 @@ export function reviewReducer(state: ReviewState, action: ReviewAction): ReviewS
     case "openExternal": {
       const candidate = getActiveCandidate(state);
       return { ...state, notice: candidate ? `Opening ${candidate.name}` : "No video candidate selected" };
+    }
+    case "openFolder": {
+      const torrent = getActiveTorrent(state);
+      return { ...state, notice: torrent ? `Opening folder for ${torrent.name}` : "No torrent selected" };
     }
     case "actionStarted":
       return { ...state, actionBusy: true, notice: action.label };

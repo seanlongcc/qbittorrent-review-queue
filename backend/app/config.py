@@ -9,6 +9,7 @@ from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.paths import local_filesystem_path
+from backend.app.session_count import session_folder_count
 
 
 class AppSettings(BaseModel):
@@ -101,17 +102,10 @@ def public_settings(settings: AppSettings) -> dict[str, Any]:
         public_key: getattr(settings, field)
         for field, public_key in FIELD_TO_PUBLIC.items()
     }
-    data["folderCount"] = _count_video_files(local_filesystem_path(settings.session_folder))
+    data["folderCount"] = session_folder_count(local_filesystem_path(settings.session_folder))
     data["passwordConfigured"] = bool(settings.qbt_password)
     data["connected"] = settings.connected
     return data
-
-
-def _count_video_files(path: Path) -> int:
-    if not path.exists():
-        return 0
-    video_extensions = {".mp4", ".mkv", ".avi", ".mov", ".webm", ".m4v", ".wmv", ".ts", ".m2ts"}
-    return sum(1 for item in path.iterdir() if item.is_file() and item.suffix.lower() in video_extensions)
 
 
 def save_settings(update: SettingsUpdate) -> AppSettings:
