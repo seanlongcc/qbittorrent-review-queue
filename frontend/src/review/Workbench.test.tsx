@@ -76,6 +76,7 @@ describe("MediaStage", () => {
     expect((screen.getByLabelText("Autoplay video preview") as HTMLVideoElement).muted).toBe(true);
     expect(labels.indexOf("Unmute preview audio, M")).toBeLessThan(labels.indexOf("Open external, T"));
     expect(labels.indexOf("Open external, T")).toBeLessThan(labels.indexOf("Open folder, G"));
+    expect(screen.getByRole("button", { name: "Unmute preview audio, M" })).toHaveTextContent("M");
     expect(screen.getByRole("button", { name: "Unmute preview audio, M" }).parentElement).toHaveClass("preview-actions");
     expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).toHaveClass("preview-actions");
     expect(screen.getByRole("button", { name: "Open folder, G" }).parentElement).toHaveClass("preview-actions");

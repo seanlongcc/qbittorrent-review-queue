@@ -204,17 +204,17 @@ export function MediaStage({
         </div>
         <div className="preview-actions">
           {onToggleMuted ? (
-            <Button
+            <CommandButton
               aria-label={muted ? "Unmute preview audio, M" : "Mute preview audio, M"}
               aria-pressed={muted}
-              className="btn icon-btn"
+              className="icon-command"
+              command="M"
               disabled={busy || !candidate?.playable}
               title={muted ? "Unmute preview audio, M" : "Mute preview audio, M"}
-              type="button"
               onClick={onToggleMuted}
             >
               {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-            </Button>
+            </CommandButton>
           ) : null}
           {onOpenExternal ? (
             <CommandButton
