@@ -5,7 +5,10 @@
     "frontend"
   ],
   "scripts": {
-    "dev": "npm --workspace frontend run dev",
+    "dev": "npm run dev:all",
+    "dev:all": "bash scripts/dev-all.sh",
+    "dev:frontend": "npm --workspace frontend run dev",
+    "dev:backend": ".venv/bin/python -m uvicorn backend.app.main:create_app --factory --host 127.0.0.1 --port 8000 --reload",
     "build": "npm --workspace frontend run build",
     "test": "npm --workspace frontend run test",
     "typecheck": "npm --workspace frontend run typecheck"

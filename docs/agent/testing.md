@@ -62,22 +62,18 @@ For these changes, implement directly and verify with the cheapest appropriate c
 - Unit-test session folder rollover blocks Keep until an existing folder with count below capacity is provided.
 - Unit-test session folder rollover rejects missing paths and full folders.
 - Unit-test Keep destination filename collisions with `-2`, `-3`, and original extension preservation.
-- Integration-test Keep with successful moves and qBittorrent delete cleanup.
+- Integration-test Keep with successful moves and no qBittorrent delete cleanup.
 - Integration-test Keep partial failure, no torrent deletion.
-- Integration-test Keep verifies destination files before qBittorrent delete cleanup.
-- Integration-test Keep cleanup treats unmarked candidates as deleted leftovers.
-- Integration-test qBittorrent cleanup failure after Keep leaves kept videos in place and marks cleanup failed.
-- Unit-test cleanup retry is explicit and no silent retry runs after cleanup failure.
-- Unit-test successful Keep removes torrent from Review Queue and selects next torrent.
+- Integration-test Keep treats successful moves as success when destination visibility lags and returns the expected folder count.
+- Integration-test Keep leaves unmarked candidates and junk qBittorrent-managed.
+- Unit-test successful Keep keeps the torrent in Review Queue and leaves it selected.
+- Unit-test successful Keep marks moved candidate rows and prevents stale refreshes from lowering the visible folder count.
 - Unit-test successful Reject removes torrent from Review Queue and selects next torrent.
 - Verify Keep/Reject UI does not present undo affordances in v1.
-- Unit-test cleanup-failed torrent moves to attention work and selects next torrent.
-- Unit-test Empty Queue State when no torrents remain after Keep/Reject.
-- Unit-test Keep proceeds without confirmation when all candidates are marked.
-- Unit-test Keep confirmation when multiple candidates exist and at least one is unmarked: first `F` arms, second `F` confirms, `Esc` cancels.
-- Unit-test Armed Keep timeout, torrent-change cancellation, and marked-candidate-change cancellation.
+- Unit-test Empty Queue State when no torrents remain after Reject.
+- Unit-test Keep requires confirmation before moving marked candidates.
 - Integration-test Reject confirmation required and `deleteFiles=true`.
-- Unit-test Reject keyboard flow: first `R` arms, second `R` confirms, `Esc` cancels.
+- Unit-test Reject keyboard flow: first `D` arms, second `D` confirms, `Esc` cancels.
 - Unit-test Armed Reject timeout and torrent-change cancellation.
 
 ## Frontend Test Priorities
@@ -100,14 +96,14 @@ For these changes, implement directly and verify with the cheapest appropriate c
 - Candidate selection updates preview route.
 - Marked candidates control which files Keep moves.
 - Candidate checkbox toggles marked state independently from active preview focus.
-- Visible left-hand keys are `Q E R T`, `A S D F`, and `Z X`: `Q` refreshes, `E` opens External Open, `R` rejects/arms Reject, `T` opens settings, `A`/`S` move previous/next torrent, `Z`/`X` move previous/next candidate, `D` toggles marking, and `F` keeps/arms Keep. `Space` may mirror `D`.
+- Visible left-hand keys are `Q W E T` and `A S D F`: `Q`/`A` move previous/next torrent, `W`/`S` move previous/next candidate, `F` toggles marking, `E` keeps marked candidates, `D` deletes/arms Delete, and `T` opens externally.
 - Arrow keys mirror navigation as secondary shortcuts.
 - Review shortcuts do not fire while typing in text inputs, path fields, or editable settings controls; `Esc` still cancels armed states or leaves typing context.
 - Only the largest video candidate is marked by default when a torrent opens.
 - Additional video candidates remain unmarked until user marks them.
 - Keyboard shortcuts trigger next/previous torrent and next/previous video.
 - Keep action sends marked candidate file indexes.
-- Keep button mirrors conditional keyboard confirmation when unmarked candidates would be deleted.
+- Keep action arms confirmation, then sends marked candidate file indexes without calling Delete.
 - Reject requires confirmation.
 - Reject button mirrors keyboard confirmation: first click arms, second click confirms.
 - Folder capacity state blocks Keep and prompts for next folder.

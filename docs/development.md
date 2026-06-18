@@ -101,6 +101,8 @@ qBittorrent bans remote clients after repeated failed WebUI logins. If the backe
 ## Safety Rules
 
 - Reject requires explicit confirmation before qBittorrent delete with `deleteFiles=true`.
-- Keep moves marked candidate files first, verifies destinations, then removes torrent leftovers with `deleteFiles=true`.
+- Keep requires confirmation, then moves marked candidate files and returns the expected folder count. It must not call qBittorrent delete with files, and it must not block or report a failed Keep solely because `/mnt/c` visibility lags after `shutil.move` returns successfully.
+- The UI preserves the Keep response folder count as a floor until backend refresh catches up; stale `/mnt/c` counts must not lower the visible in-use counter.
+- Delete is the explicit confirmed action that removes torrent leftovers with `deleteFiles=true`.
 - Keep is blocked when the session folder would exceed capacity.
 - Media/open routes accept torrent hash plus qBittorrent file index only. Browser requests never provide raw local paths.

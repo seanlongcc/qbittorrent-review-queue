@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CandidateTabs, MediaStage, QueueSidebar } from "./Workbench";
+import { CandidateTable, MediaStage, QueueSidebar, ReviewCommandBar } from "./Workbench";
 
 afterEach(() => {
   cleanup();
@@ -37,8 +37,54 @@ describe("MediaStage", () => {
     expect(video.muted).toBe(false);
     expect(video).not.toHaveAttribute("muted");
     expect(video).toHaveAttribute("playsinline");
-    expect(video).toHaveAttribute("preload", "auto");
+    expect(video).toHaveAttribute("preload", "metadata");
     expect(video).toHaveAttribute("src", "/media/abc/7");
+  });
+
+  it("toggles global preview mute from the control before Open External", () => {
+    const onToggleMuted = vi.fn();
+
+    render(
+      <MediaStage
+        loading={false}
+        muted
+        onToggleMuted={onToggleMuted}
+        onOpenExternal={() => undefined}
+        onOpenFolder={() => undefined}
+        torrent={{
+          hash: "abc",
+          name: "Done Torrent",
+          status: "completed",
+          progress: 1,
+          totalSizeBytes: 1200,
+          savePath: "C:\\Downloads\\Done Torrent",
+        }}
+        candidate={{
+          fileIndex: 7,
+          name: "main.mp4",
+          extension: "mp4",
+          sizeBytes: 1000,
+          path: "/mnt/c/Downloads/Done Torrent/main.mp4",
+          playable: true,
+        }}
+      />,
+    );
+
+    const buttons = screen.getAllByRole("button");
+    const labels = buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent);
+
+    expect((screen.getByLabelText("Autoplay video preview") as HTMLVideoElement).muted).toBe(true);
+    expect(labels.indexOf("Unmute preview audio, M")).toBeLessThan(labels.indexOf("Open external, T"));
+    expect(labels.indexOf("Open external, T")).toBeLessThan(labels.indexOf("Open folder, G"));
+    expect(screen.getByRole("button", { name: "Unmute preview audio, M" })).toHaveTextContent("M");
+    expect(screen.getByRole("button", { name: "Unmute preview audio, M" }).parentElement).toHaveClass("preview-actions");
+    expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).toHaveClass("preview-actions");
+    expect(screen.getByRole("button", { name: "Open folder, G" }).parentElement).toHaveClass("preview-actions");
+    expect(screen.getByRole("button", { name: "Open external, T" }).parentElement).not.toHaveClass("preview-title");
+
+    fireEvent.click(screen.getByRole("button", { name: "Unmute preview audio, M" }));
+
+    expect(onToggleMuted).toHaveBeenCalledTimes(1);
   });
 
   it("renders the empty stage without instructional placeholder text", () => {
@@ -80,19 +126,110 @@ describe("MediaStage", () => {
     expect(pause).toHaveBeenCalledTimes(1);
     expect(onOpenExternal).toHaveBeenCalledTimes(1);
   });
+
+  it("opens the selected torrent folder from the preview action row", () => {
+    const onOpenFolder = vi.fn();
+
+    render(
+      <MediaStage
+        loading={false}
+        onOpenFolder={onOpenFolder}
+        torrent={{
+          hash: "abc",
+          name: "Done Torrent",
+          status: "completed",
+          progress: 1,
+          totalSizeBytes: 1200,
+          savePath: "C:\\Downloads\\Done Torrent",
+        }}
+        candidate={null}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open folder, G" }));
+
+    expect(onOpenFolder).toHaveBeenCalledTimes(1);
+  });
 });
 
-describe("CandidateTabs", () => {
-  it("orders review navigation buttons by torrent, video, then mark", () => {
-    render(<CandidateTabs onCommand={() => undefined} />);
+describe("ReviewCommandBar", () => {
+  it("orders review buttons around the split key cells", () => {
+    render(
+      <ReviewCommandBar
+        markedCount={1}
+        folderCount={16}
+        folderLimit={40}
+        armedAction={null}
+        busy={false}
+        activeMissing={false}
+        keepBlocked={false}
+        hasTorrent
+        onCommand={() => undefined}
+      />,
+    );
 
     expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
-      "QPrev torrent",
-      "ANext torrent",
-      "WPrev video",
-      "SNext video",
-      "FMark selected",
+      "Q",
+      "W",
+      "S",
+      "A",
+      "FMark",
+      "EKeep",
+      "DDelete",
     ]);
+    expect(screen.getByRole("button", { name: "Previous torrent, Q" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next torrent, A" })).toBeInTheDocument();
+    expect(screen.getByText("16 / 40")).toBeInTheDocument();
+    expect(screen.getByText("in use")).toBeInTheDocument();
+  });
+});
+
+describe("CandidateTable", () => {
+  it("marks moved candidates with a distinct row state and disabled mark control", () => {
+    const onToggleMark = vi.fn();
+
+    render(
+      <CandidateTable
+        torrent={{
+          hash: "abc",
+          name: "Done Torrent",
+          status: "completed",
+          progress: 1,
+          totalSizeBytes: 1200,
+          savePath: "C:\\Downloads\\Done Torrent",
+          candidates: [
+            {
+              fileIndex: 0,
+              name: "main.mp4",
+              extension: "mp4",
+              sizeBytes: 1000,
+              path: "/mnt/c/Downloads/Done Torrent/main.mp4",
+              playable: true,
+            },
+          ],
+        }}
+        activeCandidate={null}
+        markedIndexes={[]}
+        movedIndexes={[0]}
+        armedAction={null}
+        busy={false}
+        activeMissing={false}
+        onSelectCandidate={() => undefined}
+        onToggleMark={onToggleMark}
+        onCommand={() => undefined}
+      />,
+    );
+
+    const movedRow = screen.getByText("main.mp4").closest(".candidate-row");
+    const movedButton = screen.getByRole("button", { name: "Moved candidate" });
+
+    expect(movedRow).toHaveClass("moved");
+    expect(screen.getByText("moved")).toBeInTheDocument();
+    expect(movedButton).toBeDisabled();
+
+    fireEvent.click(movedButton);
+
+    expect(onToggleMark).not.toHaveBeenCalled();
   });
 });
 
@@ -105,24 +242,12 @@ describe("QueueSidebar", () => {
     render(
       <QueueSidebar
         activeHash="torrent-24"
-        attentionTorrents={[]}
         busy={false}
         loading={false}
         onRefresh={() => undefined}
         onSelect={() => undefined}
         onSortChange={() => undefined}
         sort={{ field: "added", direction: "desc" }}
-        settings={{
-          qbtBaseUrl: "http://localhost:8080",
-          qbtUsername: "admin",
-          passwordConfigured: true,
-          windowsDownloadRoot: "C:\\Downloads",
-          wslDownloadRoot: "/mnt/c/Downloads",
-          sessionFolder: "C:\\Review",
-          sessionFolderLimit: 40,
-          folderCount: 2,
-          connected: true,
-        }}
         torrents={Array.from({ length: 30 }, (_, index) => ({
           hash: `torrent-${index}`,
           name: `Torrent ${index}`,
@@ -147,24 +272,12 @@ describe("QueueSidebar", () => {
     render(
       <QueueSidebar
         activeHash="torrent-1"
-        attentionTorrents={[]}
         busy={false}
         loading={false}
         onRefresh={() => undefined}
         onSelect={() => undefined}
         onSortChange={() => undefined}
         sort={{ field: "added", direction: "desc" }}
-        settings={{
-          qbtBaseUrl: "http://localhost:8080",
-          qbtUsername: "admin",
-          passwordConfigured: true,
-          windowsDownloadRoot: "C:\\Downloads",
-          wslDownloadRoot: "/mnt/c/Downloads",
-          sessionFolder: "C:\\Review",
-          sessionFolderLimit: 40,
-          folderCount: 2,
-          connected: true,
-        }}
         torrents={Array.from({ length: 3 }, (_, index) => ({
           hash: `torrent-${index}`,
           name: `Torrent ${index}`,

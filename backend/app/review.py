@@ -10,19 +10,13 @@ class ReviewWorkflowError(RuntimeError):
     pass
 
 
-class CleanupFailedError(ReviewWorkflowError):
-    def __init__(self, message: str, *, moved: list[Path]):
-        super().__init__(message)
-        self.moved = moved
-
-
 class TorrentDeleter(Protocol):
     def delete_torrent(self, torrent_hash: str, *, delete_files: bool) -> None: ...
 
 
 @dataclass(frozen=True)
 class KeepRequest:
-    torrent_hash: str
+    confirmed: bool
     marked_files: list[Path]
     session_folder: Path
     existing_count: int
@@ -31,19 +25,30 @@ class KeepRequest:
 
 def _destination_for(source: Path, session_folder: Path) -> Path:
     destination = session_folder / source.name
-    if not destination.exists():
+    if not _destination_file_present(destination):
         return destination
     stem = source.stem
     suffix = source.suffix
     counter = 2
     while True:
         candidate = session_folder / f"{stem}-{counter}{suffix}"
-        if not candidate.exists():
+        if not _destination_file_present(candidate):
             return candidate
         counter += 1
 
 
-def keep_torrent(request: KeepRequest, qbt: TorrentDeleter) -> dict[str, list[str]]:
+def _destination_file_present(destination: Path) -> bool:
+    if destination.exists() and destination.is_file():
+        return True
+    try:
+        return any(item.name == destination.name and item.is_file() for item in destination.parent.iterdir())
+    except OSError:
+        return False
+
+
+def keep_torrent(request: KeepRequest) -> dict[str, object]:
+    if not request.confirmed:
+        raise ReviewWorkflowError("Keep requires confirmation")
     if not request.marked_files:
         raise ReviewWorkflowError("No marked files to keep")
     if request.existing_count + len(request.marked_files) > request.session_limit:
@@ -57,15 +62,9 @@ def keep_torrent(request: KeepRequest, qbt: TorrentDeleter) -> dict[str, list[st
             raise ReviewWorkflowError(f"Marked file is missing: {source}")
         destination = _destination_for(source, request.session_folder)
         shutil.move(str(source), str(destination))
-        if not destination.exists():
-            raise ReviewWorkflowError(f"Moved file was not verified: {destination}")
         moved.append(destination)
 
-    try:
-        qbt.delete_torrent(request.torrent_hash, delete_files=True)
-    except Exception as exc:
-        raise CleanupFailedError(str(exc), moved=moved) from exc
-    return {"moved": [str(path) for path in moved]}
+    return {"moved": [str(path) for path in moved], "folderCount": request.existing_count + len(moved)}
 
 
 def reject_torrent(torrent_hash: str, qbt: TorrentDeleter, *, confirmed: bool) -> None:

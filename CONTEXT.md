@@ -149,31 +149,31 @@ The inline review-shell surface for editing local settings.
 _Avoid_: Settings page, setup route
 
 **Keep**:
-The action that moves marked candidates into the session folder and then removes the torrent and remaining content after the move succeeds.
+The confirmed action that moves marked candidates into the session folder and returns the expected folder count. It does not remove the torrent or remaining content.
 _Avoid_: Save, accept, archive
 
 **Armed Keep**:
-The temporary confirmation state for keeping marked candidates when unmarked video candidates would be deleted.
+The temporary confirmation state for moving marked candidates into the session folder.
 _Avoid_: Save confirmation, accept mode
 
 **Reject**:
-The destructive action that removes a torrent from qBittorrent with `deleteFiles=true` after confirmation.
-_Avoid_: Delete, remove, skip
+The destructive Delete action that removes a torrent from qBittorrent with `deleteFiles=true` after confirmation.
+_Avoid_: Skip, remove without confirmation
 
 **Armed Reject**:
 The temporary confirmation state for rejecting the current completed torrent.
 _Avoid_: Confirm dialog, delete mode
 
 **Torrent Leftovers**:
-Torrent content still managed by qBittorrent after marked candidates have been moved during Keep, including junk files and unmarked video candidates.
+Torrent content still managed by qBittorrent after marked candidates have been moved during Keep, including junk files and unmarked video candidates. It is deleted only after explicit Delete confirmation.
 _Avoid_: Junk files, trash, residue
 
 **Cleanup Failed Torrent**:
-An attention torrent whose marked candidates were kept but qBittorrent failed to delete torrent leftovers.
+Legacy attention state for torrents whose marked candidates were kept but qBittorrent failed to delete torrent leftovers under the old Keep-cleanup workflow.
 _Avoid_: Failed Keep, lost torrent
 
 **Cleanup Retry**:
-An explicit user action that retries qBittorrent deletion of torrent leftovers after cleanup failure.
+Legacy explicit user action that retries qBittorrent deletion of torrent leftovers after cleanup failure.
 _Avoid_: Silent retry, automatic retry
 
 **Auto-Advance**:
@@ -253,17 +253,14 @@ _Avoid_: Raw path, file URL
 - **Candidate Marking** is independent from active preview focus.
 - Candidate rows expose checkbox-style **Candidate Marking**.
 - **Left-Hand Keyboard Model** is the primary keyboard model.
-- The visible left-hand key set is `Q E R T`, `A S D F`, and `Z X`.
-- `Q` refreshes the **Review Queue**.
-- `E` opens **External Open** for the **Active Candidate**.
-- `R` enters or confirms **Armed Reject**.
-- `T` toggles settings.
-- `A` and `S` move to previous and next torrent in the **Review Queue**.
-- `Z` and `X` move the **Active Candidate** up and down.
-- `D` toggles **Candidate Marking** for the **Active Candidate**.
-- `F` triggers **Keep** or **Armed Keep** confirmation.
-- `Space` may mirror `D` as a secondary mark shortcut.
-- `Esc` cancels **Armed Keep** and **Armed Reject**.
+- The visible left-hand key set is `Q W E T` and `A S D F`.
+- `Q` and `A` move to previous and next torrent in the **Review Queue**.
+- `W` and `S` move the **Active Candidate** up and down.
+- `F` toggles **Candidate Marking** for the **Active Candidate**.
+- `E` triggers **Keep**.
+- `D` enters or confirms Delete/**Armed Reject**.
+- `T` opens **External Open** for the **Active Candidate**.
+- `Esc` cancels **Armed Reject**.
 - Arrow keys may mirror navigation as secondary shortcuts.
 - **Left-Hand Keyboard Model** shortcuts are disabled during **Typing Context**.
 - `Esc` may still cancel armed states or leave **Typing Context**.
@@ -276,23 +273,17 @@ _Avoid_: Raw path, file URL
 - A **Session Folder** is flat; **Keep** does not preserve torrent folder structure.
 - **Folder Count** includes all existing video files in the **Session Folder**, even if they were not moved by this app.
 - **Folder Count** includes current **Marked Candidates** before **Keep** moves them.
-- A **Keep** action verifies each **Kept Video** exists in the **Session Folder** before deleting **Torrent Leftovers**.
-- A **Keep** action deletes **Torrent Leftovers** by removing the torrent from qBittorrent with `deleteFiles=true`.
-- If qBittorrent deletion fails after **Kept Videos** are verified, the torrent becomes a **Cleanup Failed Torrent**.
-- A **Cleanup Failed Torrent** preserves its **Kept Videos**; the app does not move or delete them during cleanup recovery.
-- A **Cleanup Failed Torrent** allows **Cleanup Retry** or manual qBittorrent resolution.
-- **Cleanup Retry** is never automatic or silent.
-- Successful **Keep** removes the current torrent from the **Review Queue** and triggers **Auto-Advance**.
+- After successful **Keep**, the returned **Folder Count** is a local floor until refresh catches up; stale `/mnt/c` reads must not lower the visible count.
+- A **Keep** action trusts a successful OS move and does not block or fail solely because WSL `/mnt/c` visibility lags after the move succeeds.
+- A moved **Marked Candidate** remains visible as moved and cannot be marked again for another **Keep**.
+- A **Keep** action does not delete **Torrent Leftovers** or remove the torrent from qBittorrent.
+- After **Keep**, **Torrent Leftovers** remain qBittorrent-managed until the user confirms Delete.
+- Successful **Keep** leaves the current torrent in the **Review Queue** and keeps it selected.
 - Successful **Reject** removes the current torrent from the **Review Queue** and triggers **Auto-Advance**.
 - **Review Undo** is not supported in the initial product version.
 - Keep and Reject safety relies on visible consequences, confirmation rules, and post-action status rather than **Review Undo**.
-- A **Cleanup Failed Torrent** leaves normal review, moves to attention work, and triggers **Auto-Advance**.
 - **Auto-Advance** selects the next torrent in **Review Queue**, or shows **Empty Queue State** if none remain.
-- **Keep** does not require confirmation when all video candidates are marked.
-- **Armed Keep** is required when a torrent has multiple **Video Candidates** and at least one is unmarked.
-- **Armed Keep** is entered by pressing `Q` once or clicking Keep once in that guarded case.
-- **Keep** is confirmed by pressing `Q` again or clicking the armed Keep control again.
-- **Armed Keep** is canceled by `Esc`, changing the current torrent, changing marked candidates, or an 8-second timeout.
+- **Armed Keep** is required before moving marked candidates.
 - A **Session Folder** is constrained by one **Folder Capacity**.
 - **Keep** is blocked when **Folder Count** would exceed **Folder Capacity**.
 - **Session Folder Rollover** is required when **Keep** is blocked by **Folder Capacity**.
@@ -337,12 +328,12 @@ _Avoid_: Raw path, file URL
 ## Example Dialogue
 
 > **Dev:** "If a torrent has one large movie and several text files, are the text files Junk Files or Torrent Leftovers?"
-> **Domain expert:** "Before Keep, they are Junk Files in Torrent Detail. After Keep moves and verifies the Marked Candidate, any remaining torrent content is Torrent Leftovers and qBittorrent deletes it."
+> **Domain expert:** "Before Keep, they are Junk Files in Torrent Detail. After Keep moves the Marked Candidate, any remaining torrent content is Torrent Leftovers. qBittorrent deletes it only after the user confirms Delete."
 
 ## Flagged Ambiguities
 
 - "vanilla browser UI" conflicted with the requested Vite React UI. Resolved: the canonical UI is a Vite React SPA backed by FastAPI.
-- "delete" could mean Reject or cleanup after Keep. Resolved: **Reject** means confirmed qBittorrent delete-with-files for the whole torrent; **Keep** deletes leftovers only after marked candidates move successfully.
+- "delete" could mean Reject/Delete or cleanup after Keep. Resolved: **Delete** means confirmed qBittorrent delete-with-files for the whole torrent; **Keep** never deletes leftovers.
 - "queue" could mean qBittorrent's global transfer queue or this app's review list. Resolved: **Review Queue** means completed torrents waiting for manual review.
 - "queue refresh" could mean manual refresh only. Resolved: the app uses 15-second **Queue Auto-Poll** in v1 while preserving the user's current review focus and avoiding broad file-list polling.
 - "torrent disappeared during polling" could mean immediately changing selection. Resolved: show **Vanished Torrent** state for the current selection and let the user choose Next or Refresh.
@@ -352,15 +343,15 @@ _Avoid_: Raw path, file URL
 - "selected video" could mean preview focus or Keep intent. Resolved: **Selected Video** means current preview/open focus; **Marked Candidate** means a video candidate chosen for Keep.
 - "default selected" could mean all likely videos are kept automatically. Resolved: **Default Mark** marks only the largest video candidate.
 - "candidate selection" could mean preview focus or Keep marking. Resolved: **Active Candidate** is keyboard focus/preview target; **Marked Candidate** is Keep intent; rows expose checkbox-style **Candidate Marking**.
-- "keyboard-first" could imply arrow-key navigation. Resolved: **Left-Hand Keyboard Model** is primary, with visible `Q E R T`, `A S D F`, and `Z X` controls for one-handed review; arrows and `Space` are secondary.
+- "keyboard-first" could imply arrow-key navigation. Resolved: **Left-Hand Keyboard Model** is primary, with visible `Q W E T` and `A S D F` controls for one-handed review; arrows are secondary.
 - "global shortcuts" could mean firing while typing in settings. Resolved: review shortcuts are disabled during **Typing Context**, with `Esc` reserved for cancel/blur behavior.
 - "completed" could mean qBittorrent's completed filter or app-safe review readiness. Resolved: **Completed Torrent** requires qBittorrent completed filter, `progress == 1`, and no error or missing-content state; otherwise it is an **Attention Torrent**.
 - "path" could mean qBittorrent metadata, WSL filesystem access, or browser media route. Resolved: **Torrent File Path** is built from `content_path` for **Single-File Torrent** or `save_path` plus file `name` for **Multi-File Torrent**, then **Path Mapping** converts it for local access.
 - "candidate filtering" could mean qBittorrent torrent filtering or app file filtering. Resolved: qBittorrent filters completed torrents; the app uses **Video Allowlist** to classify files inside a torrent, with no default minimum size cutoff.
 - "preserve filename" could mean preserving torrent-relative folders too. Resolved: **Keep** writes a flat **Session Folder**, preserving only the original filename and adding numeric suffixes for collisions.
-- "leftovers" could imply only junk files. Resolved: **Torrent Leftovers** includes junk files and unmarked video candidates; users must mark every video they want preserved before Keep.
+- "leftovers" could imply only junk files. Resolved: **Torrent Leftovers** includes junk files and unmarked video candidates; users must press Delete to remove them from qBittorrent.
 - "confirm reject" could mean a modal, typed phrase, or second action. Resolved: **Armed Reject** uses `E` then second `E` or second Reject click, with `Esc`, torrent change, and timeout cancellation.
-- "confirm keep" could mean every Keep action needs confirmation. Resolved: **Armed Keep** is required only when multiple video candidates exist and at least one is unmarked, using `Q` then second `Q` or second Keep click.
+- "confirm keep" could mean confirmation is about deleting leftovers. Resolved: **Armed Keep** confirms only the file move; Delete has the destructive confirmation for torrent leftovers.
 - "folder count" could mean only files moved during the current app run. Resolved: **Folder Count** reads existing video files in the flat **Session Folder** and adds marked candidates pending Keep.
 - "next folder" could mean auto-creating a numbered folder. Resolved: **Session Folder Rollover** blocks Keep and requires the user to choose an existing folder with room.
 - "settings" could mean `.env` edits or app-managed settings. Resolved: **Bootstrap Settings** come from `.env`; UI changes write **Local Settings** to `config.local.json`.
@@ -371,7 +362,7 @@ _Avoid_: Raw path, file URL
 - "local app" could imply installer or executable packaging. Resolved: **Packaged App** is out of v1; run from repo scripts first.
 - "media path" could mean a browser-supplied filesystem path. Resolved: browser requests use **Media Handle** only; the server resolves paths from qBittorrent metadata.
 - "cached torrent detail" could mean cached data is safe for actions. Resolved: **Torrent Detail Cache** is UI-only and short-lived; file/destructive actions re-fetch or re-resolve metadata before acting.
-- "cleanup failed" could imply Keep failed and kept files should roll back. Resolved: **Cleanup Failed Torrent** means kept videos remain kept, torrent cleanup needs explicit retry or manual qBittorrent resolution.
+- "cleanup failed" could imply current Keep can fail during qBittorrent deletion. Resolved: current **Keep** does not delete with qBittorrent; **Cleanup Failed Torrent** is a legacy attention state only.
 - "external player" could mean user-configured player commands. Resolved: **External Open** uses the **Windows Default App** for v1; configurable player commands are deferred.
 - "unsupported preview" could imply the file is broken. Resolved: **Preview Unavailable** means browser playback is unavailable; missing/unreadable/unresolved files are errors.
-- "after action" could mean staying on a removed torrent. Resolved: successful **Keep**, successful **Reject**, and cleanup failure all trigger **Auto-Advance**.
+- "after action" could mean staying on a reviewed torrent. Resolved: successful **Keep** leaves the torrent selected; successful **Reject** triggers **Auto-Advance**.
