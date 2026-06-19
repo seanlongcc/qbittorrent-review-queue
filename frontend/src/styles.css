@@ -999,14 +999,14 @@ tr.marked td:first-child {
   background: oklch(24.5% 0.014 248);
 }
 
-.candidate-row.selected {
-  border-color: var(--key);
-  background: var(--panel-2);
-}
-
 .candidate-row.marked {
   border-color: oklch(40% 0.07 154);
   background: var(--green-soft);
+}
+
+.candidate-row.selected {
+  border-color: oklch(43% 0.058 224);
+  background: oklch(33% 0.052 224);
 }
 
 .candidate-row.moved {
@@ -1016,8 +1016,8 @@ tr.marked td:first-child {
 }
 
 .candidate-row.moved.selected {
-  border-color: color-mix(in oklab, var(--green) 82%, var(--key));
-  background: color-mix(in oklab, var(--green) 28%, var(--panel-2) 72%);
+  border-color: var(--green);
+  background: color-mix(in oklab, var(--green) 24%, var(--panel) 76%);
 }
 
 .candidate-main {

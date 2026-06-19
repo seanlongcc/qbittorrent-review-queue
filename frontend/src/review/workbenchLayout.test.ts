@@ -26,4 +26,20 @@ describe("workbench layout CSS", () => {
     expect(declarationValue(main, "min-height")).toBe("0");
     expect(declarationValue(main, "overflow")).toBe("hidden");
   });
+
+  it("uses the Mark command blue for selected candidates until the kept state turns green", () => {
+    const selected = declarationBlock(".candidate-row.selected");
+    const moved = declarationBlock(".candidate-row.moved");
+    const movedSelected = declarationBlock(".candidate-row.moved.selected");
+
+    expect(declarationValue(selected, "border-color")).toBe("oklch(43% 0.058 224)");
+    expect(declarationValue(selected, "background")).toBe("oklch(33% 0.052 224)");
+    expect(declarationValue(movedSelected, "border-color")).toBe("var(--green)");
+    expect(declarationValue(movedSelected, "background")).toBe(declarationValue(moved, "background"));
+  });
+
+  it("orders candidate row states so selection overrides marked and moved overrides selection", () => {
+    expect(styles.indexOf(".candidate-row.marked")).toBeLessThan(styles.indexOf(".candidate-row.selected"));
+    expect(styles.indexOf(".candidate-row.selected")).toBeLessThan(styles.indexOf(".candidate-row.moved"));
+  });
 });
