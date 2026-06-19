@@ -27,14 +27,19 @@ describe("workbench layout CSS", () => {
     expect(declarationValue(main, "overflow")).toBe("hidden");
   });
 
-  it("uses the Mark command blue for selected candidates until the kept state turns green", () => {
+  it("uses Mark blue for selected and marked candidates until kept candidates turn Keep green", () => {
+    const marked = declarationBlock(".candidate-row.marked");
     const selected = declarationBlock(".candidate-row.selected");
     const moved = declarationBlock(".candidate-row.moved");
     const movedSelected = declarationBlock(".candidate-row.moved.selected");
 
+    expect(declarationValue(marked, "border-color")).toBe("oklch(43% 0.058 224)");
+    expect(declarationValue(marked, "background")).toBe("oklch(33% 0.052 224)");
     expect(declarationValue(selected, "border-color")).toBe("oklch(43% 0.058 224)");
     expect(declarationValue(selected, "background")).toBe("oklch(33% 0.052 224)");
-    expect(declarationValue(movedSelected, "border-color")).toBe("var(--green)");
+    expect(declarationValue(moved, "border-color")).toBe("oklch(40% 0.07 154)");
+    expect(declarationValue(moved, "background")).toBe("oklch(33% 0.052 154)");
+    expect(declarationValue(movedSelected, "border-color")).toBe(declarationValue(moved, "border-color"));
     expect(declarationValue(movedSelected, "background")).toBe(declarationValue(moved, "background"));
   });
 
