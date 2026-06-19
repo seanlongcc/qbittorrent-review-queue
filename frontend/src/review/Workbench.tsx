@@ -418,9 +418,7 @@ export function CandidateTable({
           const marked = markedIndexes.includes(candidate.fileIndex);
           const moved = movedIndexes.includes(candidate.fileIndex);
           const selected = activeCandidate?.fileIndex === candidate.fileIndex;
-          const status = [selected ? "previewing" : null, moved ? "moved" : marked ? "marked" : "unmarked"]
-            .filter(Boolean)
-            .join(" / ");
+          const status = moved ? "moved" : marked ? "marked" : "unmarked";
           return (
             <div
               className={["candidate-row", selected ? "selected" : "", marked ? "marked" : "", moved ? "moved" : ""].filter(Boolean).join(" ")}

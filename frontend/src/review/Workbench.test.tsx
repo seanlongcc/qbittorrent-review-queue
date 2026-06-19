@@ -185,6 +185,44 @@ describe("ReviewCommandBar", () => {
 });
 
 describe("CandidateTable", () => {
+  it("does not show previewing text for the selected candidate", () => {
+    const activeCandidate = {
+      fileIndex: 0,
+      name: "main.mp4",
+      extension: "mp4",
+      sizeBytes: 1000,
+      path: "/mnt/c/Downloads/Done Torrent/main.mp4",
+      playable: true,
+    };
+
+    render(
+      <CandidateTable
+        torrent={{
+          hash: "abc",
+          name: "Done Torrent",
+          status: "completed",
+          progress: 1,
+          totalSizeBytes: 1200,
+          savePath: "C:\\Downloads\\Done Torrent",
+          candidates: [activeCandidate],
+        }}
+        activeCandidate={activeCandidate}
+        markedIndexes={[0]}
+        movedIndexes={[]}
+        armedAction={null}
+        busy={false}
+        activeMissing={false}
+        onSelectCandidate={() => undefined}
+        onToggleMark={() => undefined}
+        onCommand={() => undefined}
+      />,
+    );
+
+    expect(screen.getByText("main.mp4").closest(".candidate-row")).toHaveClass("selected");
+    expect(screen.getByText(/marked/i)).toBeInTheDocument();
+    expect(screen.queryByText(/previewing/i)).not.toBeInTheDocument();
+  });
+
   it("marks moved candidates with a distinct row state and disabled mark control", () => {
     const onToggleMark = vi.fn();
 
