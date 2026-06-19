@@ -43,6 +43,21 @@ describe("workbench layout CSS", () => {
     expect(declarationValue(movedSelected, "background")).toBe(declarationValue(moved, "background"));
   });
 
+  it("keeps the mark checkbox neutral until row state makes it blue or Keep green", () => {
+    const base = declarationBlock(".mark-cell");
+    const selected = declarationBlock(".candidate-row.selected .mark-cell");
+    const marked = declarationBlock(".candidate-row.marked .mark-cell");
+    const moved = declarationBlock(".candidate-row.moved .mark-cell");
+
+    expect(declarationValue(base, "color")).toBe("var(--muted-text)");
+    expect(declarationValue(selected, "border-color")).toBe("oklch(43% 0.058 224)");
+    expect(declarationValue(selected, "background")).toBe("oklch(33% 0.052 224)");
+    expect(declarationValue(marked, "border-color")).toBe(declarationValue(selected, "border-color"));
+    expect(declarationValue(marked, "background")).toBe(declarationValue(selected, "background"));
+    expect(declarationValue(moved, "border-color")).toBe("oklch(40% 0.07 154)");
+    expect(declarationValue(moved, "background")).toBe("oklch(33% 0.052 154)");
+  });
+
   it("orders candidate row states so selection overrides marked and moved overrides selection", () => {
     expect(styles.indexOf(".candidate-row.marked")).toBeLessThan(styles.indexOf(".candidate-row.selected"));
     expect(styles.indexOf(".candidate-row.selected")).toBeLessThan(styles.indexOf(".candidate-row.moved"));

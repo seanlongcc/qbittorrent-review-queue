@@ -1049,16 +1049,31 @@ tr.marked td:first-child {
   height: 30px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  color: var(--green);
+  color: var(--muted-text);
   background: transparent;
 }
 
 .mark-cell:disabled {
   cursor: default;
   opacity: 1;
-  color: var(--ink);
-  background: var(--green);
-  border-color: var(--green);
+}
+
+.candidate-row.selected .mark-cell {
+  color: oklch(91% 0.018 224);
+  border-color: oklch(43% 0.058 224);
+  background: oklch(33% 0.052 224);
+}
+
+.candidate-row.marked .mark-cell {
+  color: oklch(91% 0.018 224);
+  border-color: oklch(43% 0.058 224);
+  background: oklch(33% 0.052 224);
+}
+
+.candidate-row.moved .mark-cell {
+  color: oklch(90% 0.036 154);
+  border-color: oklch(40% 0.07 154);
+  background: oklch(33% 0.052 154);
 }
 
 .confirm {
